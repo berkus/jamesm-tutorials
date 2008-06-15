@@ -3,7 +3,7 @@
 
 #include "multiboot.h"
 
-int main(struct multiboot *mboot_ptr, u32int initial_stack)
+int main(multiboot_t *mboot_ptr, uint32_t initial_stack)
 {
   return 0xdeadbeef;
 }
