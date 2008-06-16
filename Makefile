@@ -1,7 +1,4 @@
 # Makefile for JamesM's kernel tutorials.
-# The C and C++ rules are already setup by default.
-# The only one that needs changing is the assembler 
-# rule, as we use nasm instead of GNU as.
 
 CSOURCES=$(shell find -name *.c)
 COBJECTS=$(patsubst %.c, %.o, $(CSOURCES))
@@ -14,6 +11,9 @@ LDFLAGS=-melf_i386 -Tlink.ld
 ASFLAGS=-felf
 
 all: $(COBJECTS) $(SOBJECTS) link update
+
+bochs:
+	bash scripts/run_bochs.sh
 
 update:
 	@echo Updating floppy image
