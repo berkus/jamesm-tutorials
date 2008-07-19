@@ -6,6 +6,7 @@ SSOURCES=$(shell find -name *.s)
 SOBJECTS=$(patsubst %.s, %.o, $(SSOURCES))
 
 CC=gcc
+LD=ld
 CFLAGS=-nostdlib -nostdinc -fno-builtin -m32
 LDFLAGS=-melf_i386 -Tlink.ld
 ASFLAGS=-felf
@@ -25,7 +26,7 @@ clean:
 
 link:
 	@echo Linking
-	@ld $(LDFLAGS) -o kernel $(COBJECTS) $(SOBJECTS)
+	$(LD) $(LDFLAGS) -o kernel $(COBJECTS) $(SOBJECTS)
 
 .s.o:
 	@echo Assembling $<
@@ -33,4 +34,4 @@ link:
 
 .c.o:
 	@echo Compiling $<
-	@$(CC) $(CFLAGS) -o $@ -c $<
+	$(CC) $(CFLAGS) -o $@ -c $<
