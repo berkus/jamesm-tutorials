@@ -26,7 +26,7 @@ clean:
 
 link:
 	@echo Linking
-	$(LD) $(LDFLAGS) -o kernel $(COBJECTS) $(SOBJECTS)
+	@$(LD) $(LDFLAGS) -o kernel $(COBJECTS) $(SOBJECTS)
 
 .s.o:
 	@echo Assembling $<
@@ -34,4 +34,4 @@ link:
 
 .c.o:
 	@echo Compiling $<
-	$(CC) $(CFLAGS) -o $@ -c $<
+	@$(CC) $(CFLAGS) -o $@ -c $<
