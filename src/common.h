@@ -4,6 +4,8 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#include "printk.h"
+
 // Some standard typedefs, to standardise sizes across platforms.
 // These typedefs are written for 32-bit X86.
 typedef unsigned int   uint32_t;
