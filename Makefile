@@ -7,7 +7,7 @@ SOBJECTS=$(patsubst %.s, %.o, $(SSOURCES))
 
 CC=gcc
 LD=ld
-CFLAGS=-nostdlib -nostdinc -fno-builtin -m32
+CFLAGS=-nostdlib -fno-builtin -m32
 LDFLAGS=-melf_i386 -Tlink.ld
 ASFLAGS=-felf
 
@@ -26,7 +26,7 @@ clean:
 
 link:
 	@echo Linking
-	@$(LD) $(LDFLAGS) -o kernel $(COBJECTS) $(SOBJECTS)
+	@$(LD) $(LDFLAGS) -o kernel $(SOBJECTS) $(COBJECTS)
 
 .s.o:
 	@echo Assembling $<
