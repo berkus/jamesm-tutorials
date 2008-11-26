@@ -6,11 +6,7 @@
 #include "monitor.h"
 #include "gdt.h"
 #include "idt.h"
-
-static void int_3_handler (registers_t *regs)
-{
-  printk ("Interrupt 3 received!\n");
-}
+#include "timer.h"
 
 int main(multiboot_t *mboot_ptr)
 {
@@ -19,11 +15,11 @@ int main(multiboot_t *mboot_ptr)
 
   init_gdt ();
   init_idt ();
-  
-  register_interrupt_handler (3, &int_3_handler);
+  init_timer (20);
 
-  asm volatile("int $0x3");
-  asm volatile("int $0x4");
+  asm volatile ("sti");
+
+  for (;;);
   
   return 0xdeadbeef;
 }

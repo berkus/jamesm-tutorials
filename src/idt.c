@@ -36,6 +36,18 @@ void init_idt ()
   // Zero the IDT to start with.
   memset (&idt_entries, 0, sizeof (idt_entry_t) * 255);
 
+  // Remap the irq table.
+  outb (0x20, 0x11);
+  outb (0xA0, 0x11);
+  outb (0x21, 0x20);
+  outb (0xA1, 0x28);
+  outb (0x21, 0x04);
+  outb (0xA1, 0x02);
+  outb (0x21, 0x01);
+  outb (0xA1, 0x01);
+  outb (0x21, 0x0);
+  outb (0xA1, 0x0);
+
   // Set each gate in the IDT that we care about - that is:
   // 0-32:  Used by the CPU to report conditions, both normal and error.
   // 255:   Will be used later as a way to execute system calls.
@@ -71,6 +83,22 @@ void init_idt ()
   idt_set_gate (29, (uint32_t)isr29, 0x08, 0x8E);
   idt_set_gate (30, (uint32_t)isr30, 0x08, 0x8E);
   idt_set_gate (31, (uint32_t)isr31, 0x08, 0x8E);
+  idt_set_gate (32, (uint32_t)irq0, 0x08, 0x8E);
+  idt_set_gate (33, (uint32_t)irq1, 0x08, 0x8E);
+  idt_set_gate (34, (uint32_t)irq2, 0x08, 0x8E);
+  idt_set_gate (35, (uint32_t)irq3, 0x08, 0x8E);
+  idt_set_gate (36, (uint32_t)irq4, 0x08, 0x8E);
+  idt_set_gate (37, (uint32_t)irq5, 0x08, 0x8E);
+  idt_set_gate (38, (uint32_t)irq6, 0x08, 0x8E);
+  idt_set_gate (39, (uint32_t)irq7, 0x08, 0x8E);
+  idt_set_gate (40, (uint32_t)irq8, 0x08, 0x8E);
+  idt_set_gate (41, (uint32_t)irq9, 0x08, 0x8E);
+  idt_set_gate (42, (uint32_t)irq10, 0x08, 0x8E);
+  idt_set_gate (43, (uint32_t)irq11, 0x08, 0x8E);
+  idt_set_gate (44, (uint32_t)irq12, 0x08, 0x8E);
+  idt_set_gate (45, (uint32_t)irq13, 0x08, 0x8E);
+  idt_set_gate (46, (uint32_t)irq14, 0x08, 0x8E);
+  idt_set_gate (47, (uint32_t)irq15, 0x08, 0x8E);
   idt_set_gate (255, (uint32_t)isr255, 0x08, 0x8E);
 
   // Tell the CPU about our new IDT.
@@ -89,6 +117,7 @@ static void idt_set_gate (uint8_t num, uint32_t base, uint16_t sel, uint8_t flag
   idt_entries[num].flags   = flags /* | 0x60 */;
 }
 
+// This gets called from our ASM interrupt handler stub.
 void idt_handler (registers_t *regs)
 {
   if (interrupt_handlers [regs->int_no])
@@ -99,6 +128,23 @@ void idt_handler (registers_t *regs)
     monitor_write_dec (regs->int_no);
     monitor_put ('\n');
   }
+}
+
+// This gets called from our ASM interrupt handler stub.
+void irq_handler(registers_t *regs)
+{
+    if (interrupt_handlers[regs->int_no] != 0)
+      interrupt_handlers[regs->int_no] (regs);
+
+    // Send an EOI (end of interrupt) signal to the PICs.
+    // If this interrupt involved the slave.
+    if (regs->int_no >= 40)
+    {
+        // Send reset signal to slave.
+        outb(0xA0, 0x20);
+    }
+    // Send reset signal to master. (As well as slave, if necessary).
+    outb(0x20, 0x20);
 }
 
 void register_interrupt_handler (uint8_t n, interrupt_handler_t h)
