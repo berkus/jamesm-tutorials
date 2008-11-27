@@ -12,9 +12,6 @@ uint32_t tick = 0;
 static void timer_callback (registers_t *regs)
 {
     tick++;
-    monitor_write("Tick: ");
-    monitor_write_dec(tick);
-    monitor_write("\n");
 }
 
 void init_timer (uint32_t frequency)
