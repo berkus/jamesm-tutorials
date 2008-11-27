@@ -27,6 +27,9 @@ mboot:
 start:
     push ebx                  	; Push a pointer to the multiboot info structure.
 
+    mov ebp, 0                  ; Initialise the base pointer to zero so we can terminate stack traces
+                                ; here.
+
     cli                         ; Disable interrupts.
     call main                   ; call our main() function.
     jmp $                       ; Enter an infinite loop, to stop the processor

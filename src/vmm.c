@@ -12,6 +12,8 @@ uint32_t *page_tables = (uint32_t *)PAGE_TABLE_VIRTUAL_ADDR;
 
 page_directory_t *current_directory;
 
+extern char pmm_paging_active;
+
 void page_fault (registers_t *regs);
 
 void init_vmm ()
@@ -53,6 +55,15 @@ void init_vmm ()
   cr0 |= 0x80000000;
   asm volatile ("mov %0, %%cr0" : : "r" (cr0));
 
+  // We need to map the page table where the physical memory manager keeps its page stack
+  // else it will panic on the first "pmm_free_page".
+  uint32_t pt_idx = PAGE_DIR_IDX((PMM_STACK_ADDR>>12));
+  page_directory[pt_idx] = pmm_alloc_page () | PAGE_PRESENT | PAGE_WRITE;
+  memset (page_tables[pt_idx*1024], 0, 0x1000);
+
+  // Paging is now active. Tell the physical memory manager.
+  pmm_paging_active = 1;
+
 }
 
 void switch_page_directory (page_directory_t *pd)
@@ -71,7 +82,7 @@ void map (uint32_t va, uint32_t pa, uint32_t flags)
   {
     // The page table holding this page has not been created yet.
     page_directory[pt_idx] = pmm_alloc_page() | PAGE_PRESENT | PAGE_WRITE;
-    memset (page_directory[pt_idx], 0, 0x1000);
+    memset (page_tables[pt_idx*1024], 0, 0x1000);
   }
 
   // Now that the page table definately exists, we can update the PTE.
@@ -84,7 +95,7 @@ void unmap (uint32_t va)
   
   page_tables[virtual_page] = 0;
   // Inform the CPU that we have invalidated a page mapping.
-  asm volatile ("invlpg %0" : : "m" (va));
+  asm volatile ("invlpg (%0)" : : "a" (va));
 }
 
 void page_fault (registers_t *regs)
