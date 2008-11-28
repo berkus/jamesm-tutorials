@@ -4,7 +4,7 @@
 //
 
 #ifndef PRINTK_H
-#define PRINTK_
+#define PRINTK_H
 
 void printk (const char *fmt, ...);
 

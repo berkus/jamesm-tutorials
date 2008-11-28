@@ -10,7 +10,7 @@
 
 #define PMM_STACK_ADDR 0xFF000000
 
-void init_pmm ();
+void init_pmm (uint32_t start);
 
 uint32_t pmm_alloc_page ();
 

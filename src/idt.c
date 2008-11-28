@@ -124,10 +124,8 @@ void idt_handler (registers_t *regs)
     interrupt_handlers [regs->int_no] (regs);
   else
   {
-    monitor_write ("Unhandled interrupt: ");
-    monitor_write_dec (regs->int_no);
-    monitor_put ('\n');
-    for (;;);
+    printk ("Unhandled interrupt: %d\n", regs->int_no);
+    panic ("Unhandled interrupt");
   }
 }
 
