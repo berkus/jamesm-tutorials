@@ -21,7 +21,7 @@
 typedef uint32_t page_directory_t;
 
 // Sets up the environment, page directories etc and enables paging.
-void initialise_vmm ();
+void init_vmm ();
 
 // Changes address space.
 void switch_page_directory (page_directory_t *pd);
