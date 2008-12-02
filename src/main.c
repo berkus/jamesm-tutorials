@@ -16,7 +16,7 @@ int main(multiboot_t *mboot_ptr)
   init_gdt ();
   init_idt ();
   init_timer (20);
-  init_pmm ();
+  init_pmm (mboot_ptr->mem_upper);
   init_vmm ();
 
   // Find all the usable areas of memory and inform the physical memory manager about them.
