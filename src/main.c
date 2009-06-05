@@ -8,6 +8,15 @@
 #include "idt.h"
 #include "timer.h"
 #include "vmm.h"
+#include "elf.h"
+
+elf_t kernel_elf;
+
+int fn(void *arg)
+{
+  printk ("%x\n", arg);
+  return 6;
+}
 
 int main(multiboot_t *mboot_ptr)
 {
@@ -16,15 +25,16 @@ int main(multiboot_t *mboot_ptr)
   init_gdt ();
   init_idt ();
   init_timer (20);
-  init_pmm ();
+  init_pmm (mboot_ptr->mem_upper);
   init_vmm ();
+  init_heap ();
 
   // Find all the usable areas of memory and inform the physical memory manager about them.
   uint32_t i = mboot_ptr->mmap_addr;
   while (i < mboot_ptr->mmap_addr + mboot_ptr->mmap_length)
   {
     mmap_entry_t *me = (mmap_entry_t*) i;
-    
+
     // Does this entry specify usable RAM?
     if (me->type == 1)
     {
@@ -41,27 +51,10 @@ int main(multiboot_t *mboot_ptr)
     i += me->size + sizeof (uint32_t);
   }
 
-  printk ("Paging initialised.\n");
+  kernel_elf = elf_from_multiboot (mboot_ptr);
 
-  printk ("Mapping page...\n");
-  uint32_t addr = 0x900000;
-  map (addr, 0x500000, PAGE_PRESENT|PAGE_WRITE);
-  printk ("Accessing page...\n");
-
-  volatile uint32_t *_addr  = (volatile uint32_t*)addr;
-  *_addr = 0x567;
-  printk ("*addr: %x\n", *_addr);
-
-  printk ("Unmapping page...\n");
-  unmap (addr);
-
-  printk ("Trying to access again (should page fault)...\n");
-  *_addr = 0x678;
-  printk ("*addr: %x\n", *_addr);
-
-  asm volatile ("sti");
-
+  panic ("Testing panic mechanism");
   for (;;);
-  
+
   return 0xdeadbeef;
 }

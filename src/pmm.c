@@ -7,17 +7,15 @@
 #include "vmm.h"
 #include "common.h"
 
-extern uint32_t end;
-
 uint32_t pmm_stack_loc = PMM_STACK_ADDR;
 uint32_t pmm_stack_max = PMM_STACK_ADDR;
-uint32_t pmm_location = (uint32_t)&end;
+uint32_t pmm_location;
 char pmm_paging_active = 0;
 
-void init_pmm (uint32_t free_start, uint32_t free_end)
+void init_pmm (uint32_t start)
 {
   // Ensure the initial page allocation location is page-aligned.
-  pmm_location = (pmm_location + 0x1000) & PAGE_MASK;
+  pmm_location = (start + 0x1000) & PAGE_MASK;
 }
 
 uint32_t pmm_alloc_page ()
@@ -26,10 +24,7 @@ uint32_t pmm_alloc_page ()
   {
     // Quick sanity check.
     if (pmm_stack_loc == PMM_STACK_ADDR)
-    {
-      printk ("Error:out of memory.\n");
-      for (;;) ;
-    }
+      panic ("Error:out of memory.");
 
     // Pop off the stack.
     pmm_stack_loc -= sizeof (uint32_t);

@@ -11,9 +11,9 @@ MBOOT_HEADER_MAGIC  equ 0x1BADB002 ; Multiboot Magic value
 MBOOT_HEADER_FLAGS  equ MBOOT_PAGE_ALIGN | MBOOT_MEM_INFO
 MBOOT_CHECKSUM      equ -(MBOOT_HEADER_MAGIC + MBOOT_HEADER_FLAGS)
 
-[BITS 32]                       ; All instructions should be 32-bit.
+bits 32                         ; All instructions should be 32-bit.
 
-[GLOBAL mboot]                  ; Make 'mboot' accessible from C.
+global mboot                    ; Make 'mboot' accessible from C.
 
 mboot:
     dd  MBOOT_HEADER_MAGIC      ; GRUB will search for this value on each
@@ -21,8 +21,8 @@ mboot:
     dd  MBOOT_HEADER_FLAGS      ; How GRUB should load your file / settings
     dd  MBOOT_CHECKSUM          ; To ensure that the above values are correct
     
-[GLOBAL start]                  ; Kernel entry point.
-[EXTERN main]                   ; This is the entry point of our C code
+global start:function start.end-start ; Kernel entry point.
+extern main                     ; This is the entry point of our C code
 
 start:
     push ebx                  	; Push a pointer to the multiboot info structure.
@@ -33,5 +33,5 @@ start:
     cli                         ; Disable interrupts.
     call main                   ; call our main() function.
     jmp $                       ; Enter an infinite loop, to stop the processor
-                                ; executing whatever rubbish is in the memory
+.end:                           ; executing whatever rubbish is in the memory
                                 ; after our kernel!
