@@ -10,8 +10,8 @@
 
 typedef struct
 {
-  uint32_t id;                  // Thread ID.
   uint32_t esp, ebp, ebx, esi, edi;
+  uint32_t id;                  // Thread ID.
 } thread_t;
 
 thread_t *init_threading ();

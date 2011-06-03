@@ -13,6 +13,8 @@ MBOOT_CHECKSUM      equ -(MBOOT_HEADER_MAGIC + MBOOT_HEADER_FLAGS)
 
 bits 32                         ; All instructions should be 32-bit.
 
+section .text
+
 global mboot                    ; Make 'mboot' accessible from C.
 
 mboot:
@@ -29,9 +31,14 @@ start:
 
     mov ebp, 0                  ; Initialise the base pointer to zero so we can terminate stack traces
                                 ; here.
+    mov esp, stack
 
     cli                         ; Disable interrupts.
     call main                   ; call our main() function.
     jmp $                       ; Enter an infinite loop, to stop the processor
 .end:                           ; executing whatever rubbish is in the memory
                                 ; after our kernel!
+
+section .bss
+    resb 32768
+stack:

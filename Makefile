@@ -28,10 +28,13 @@ link:
 	@echo Linking
 	@$(LD) $(LDFLAGS) -o kernel $(SOBJECTS) $(COBJECTS)
 
+docs:
+	cd doc; make html
+
 .s.o:
 	@echo Assembling $<
 	@nasm $(ASFLAGS) $<
 
 .c.o:
 	@echo Compiling $<
-	@$(CC) $(CFLAGS) -o $@ -c $<
+	@$(CC) $(CFLAGS) -DCHAPTER=$(CHAPTER) -o $@ -c $<

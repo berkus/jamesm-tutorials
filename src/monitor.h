@@ -1,3 +1,4 @@
+#if CHAPTER >= 3
 // monitor.h -- Defines the interface for monitor code
 //              From JamesM's kernel development tutorials.
 
@@ -22,3 +23,4 @@ void monitor_write_hex(uint32_t n);
 void monitor_write_dec(uint32_t n);
 
 #endif // MONITOR_H
+#endif // CHAPTER >= 3

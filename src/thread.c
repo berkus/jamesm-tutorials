@@ -35,10 +35,11 @@ thread_t *create_thread (int (*fn)(void*), void *arg, uint32_t *stack)
 
   return thread;
 }
-
+#if 0
 void switch_thread (thread_t *next)
 {
-  asm volatile ("mov %%esp, %0" : "=r" (current_thread->esp));
+
+    asm volatile ("mov %%esp, %0; mov %%ebp, %1" : "=r" (current_thread->esp), "=r"(current_thread->ebp));
   asm volatile ("mov %%ebp, %0" : "=r" (current_thread->ebp));
   asm volatile ("mov %%ebx, %0" : "=r" (current_thread->ebx));
   asm volatile ("mov %%esi, %0" : "=r" (current_thread->esi));
@@ -52,7 +53,7 @@ void switch_thread (thread_t *next)
   asm volatile ("mov %0, %%esp" : : "r" (next->esp));
   asm volatile ("mov %0, %%ebp" : : "r" (next->ebp));
 }
-
+#endif
 void thread_exit ()
 {
   register uint32_t val asm ("eax");

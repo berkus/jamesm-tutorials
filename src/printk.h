@@ -1,3 +1,4 @@
+#if CHAPTER >= 3
 // 
 // printk.h - Declares screen printing functions.
 //            Written for JamesM's kernel development tutorials.
@@ -8,4 +9,5 @@
 
 void printk (const char *fmt, ...);
 
+#endif
 #endif
