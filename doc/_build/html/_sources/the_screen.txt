@@ -11,9 +11,9 @@ The theory
 ==========
 
 Your kernel gets booted by GRUB in text mode. That is, it has
-available to it a framebuffer (area of memory) that controls a screen
+access to a framebuffer (area of memory) that controls a screen
 of characters (not pixels) 80 wide by 25 high. This will be the mode
-your kernel will operate in until your get into the world of VESA
+your kernel will operate in until your get into the world of graphics
 (which will not be covered in this tutorial).
 
 The area of memory known as the framebuffer is accessible just like
@@ -85,7 +85,7 @@ memcpy/memset etc. I have left them for you to implement! :-)
 
 .. literalinclude:: ../src/common.h
     :start-after: #if CHAPTER >= 3
-    :end-before: #endif CHAPTER >= 3
+    :end-before: #endif // CHAPTER >= 3
     :prepend: // src/common.h
 
 
@@ -163,7 +163,7 @@ Writing a string
 
 .. literalinclude:: ../src/monitor.c
     :start-after: // Outputs a null-terminated
-    :end-before: // void monitor_write_hex
+    :end-before: void monitor_write_hex
 
 Summary
 -------

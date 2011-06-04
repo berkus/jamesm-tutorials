@@ -83,13 +83,11 @@
 <span class="k">extern</span> <span class="nv">main</span>                     <span class="c1">; This is the entry point of our C code</span>
 
 <span class="nl">start:</span>
+    <span class="nf">cli</span>                         <span class="c1">; Disable interrupts.</span>
     <span class="nf">mov</span> <span class="nb">esp</span><span class="p">,</span> <span class="nv">stack</span>              <span class="c1">; Set up our own stack.</span>
     <span class="nf">push</span> <span class="nb">ebx</span>                  	<span class="c1">; Push a pointer to the multiboot info structure.</span>
-
-    <span class="nf">mov</span> <span class="nb">ebp</span><span class="p">,</span> <span class="mi">0</span>                  <span class="c1">; Initialise the base pointer to zero so we can terminate stack traces</span>
-                                <span class="c1">; here.</span>
-
-    <span class="nf">cli</span>                         <span class="c1">; Disable interrupts.</span>
+    <span class="nf">mov</span> <span class="nb">ebp</span><span class="p">,</span> <span class="mi">0</span>                  <span class="c1">; Initialise the base pointer to zero so we can </span>
+                                <span class="c1">; terminate stack traces here.</span>
     <span class="nf">call</span> <span class="nv">main</span>                   <span class="c1">; call our main() function.</span>
     <span class="nf">jmp</span> <span class="kc">$</span>                       <span class="c1">; Enter an infinite loop, to stop the processor</span>
 <span class="nl">.end:</span>                           <span class="c1">; from executing whatever rubbish is in the memory</span>
@@ -189,7 +187,7 @@
 </div>
 <div class="section" id="back-to-the-code-again">
 <h4>Back to the code again...<a class="headerlink" href="#back-to-the-code-again" title="Permalink to this headline">¶</a></h4>
-<p>So, immediately on bootup, the asm snippet tells the CPU to allocate us a stack at known location, push the contents of EBX onto the stack, clear the stack frame pointer (this is to help debuggers and stack tracers - more in a later chapter) and disable interrupts. It then calls a function called &#8220;main&#8221;, then enter an infinite loop.</p>
+<p>So, immediately on bootup, the asm snippet tells the CPU to disable interrupts, allocate us a stack at known location, push the contents of EBX onto the stack and clear the stack frame pointer (this is to help debuggers and stack tracers - more in a later chapter). It then calls a function called &#8220;main&#8221;, then enter an infinite loop.</p>
 <div class="admonition note">
 <p class="first admonition-title">Note</p>
 <p class="last">Technically Multiboot specification requires bootloader to disable interrupts before passing control to your code, but we do it anyway to be on the safe side.</p>

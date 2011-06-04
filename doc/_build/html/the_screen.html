@@ -57,9 +57,9 @@ ally in the debugging battle.</p>
 <div class="section" id="the-theory">
 <h2>The theory<a class="headerlink" href="#the-theory" title="Permalink to this headline">¶</a></h2>
 <p>Your kernel gets booted by GRUB in text mode. That is, it has
-available to it a framebuffer (area of memory) that controls a screen
+access to a framebuffer (area of memory) that controls a screen
 of characters (not pixels) 80 wide by 25 high. This will be the mode
-your kernel will operate in until your get into the world of VESA
+your kernel will operate in until your get into the world of graphics
 (which will not be covered in this tutorial).</p>
 <p>The area of memory known as the framebuffer is accessible just like
 normal RAM, at address <em>0xB8000</em>. It is important to note, however,
@@ -165,9 +165,6 @@ memcpy/memset etc. I have left them for you to implement! :-)</p>
 <span class="kt">void</span> <span class="n">outb</span><span class="p">(</span><span class="kt">uint16_t</span> <span class="n">port</span><span class="p">,</span> <span class="kt">uint8_t</span> <span class="n">value</span><span class="p">);</span>
 <span class="kt">uint8_t</span> <span class="n">inb</span><span class="p">(</span><span class="kt">uint16_t</span> <span class="n">port</span><span class="p">);</span>
 <span class="kt">uint16_t</span> <span class="n">inw</span><span class="p">(</span><span class="kt">uint16_t</span> <span class="n">port</span><span class="p">);</span>
-<span class="cp">#endif </span><span class="c1">// CHAPTER &gt;= 3</span>
-
-<span class="cp">#endif </span><span class="c1">// COMMON_H</span>
 </pre></div>
 </div>
 <div class="highlight-c"><div class="highlight"><pre><span class="cp">// common.c -- Defines some global functions.</span>
@@ -376,56 +373,6 @@ spaces:</p>
     <span class="k">while</span> <span class="p">(</span><span class="o">*</span><span class="n">c</span><span class="p">)</span>
       <span class="n">monitor_put</span><span class="p">(</span><span class="o">*</span><span class="n">c</span><span class="o">++</span><span class="p">);</span>
 <span class="p">}</span>
-
-<span class="kt">void</span> <span class="nf">monitor_write_hex</span><span class="p">(</span><span class="kt">uint32_t</span> <span class="n">n</span><span class="p">)</span>
-<span class="p">{</span>
-  <span class="kt">int</span> <span class="n">tmp</span><span class="p">;</span>
-  <span class="kt">char</span> <span class="n">noZeroes</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-
-  <span class="n">monitor_write</span><span class="p">(</span><span class="s">&quot;0x&quot;</span><span class="p">);</span>
-
-  <span class="kt">int</span> <span class="n">i</span><span class="p">;</span>
-  <span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">28</span><span class="p">;</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">-=</span> <span class="mi">4</span><span class="p">)</span>
-  <span class="p">{</span>
-    <span class="n">tmp</span> <span class="o">=</span> <span class="p">(</span><span class="n">n</span> <span class="o">&gt;&gt;</span> <span class="n">i</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0xF</span><span class="p">;</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">tmp</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">noZeroes</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
-      <span class="k">continue</span><span class="p">;</span>
-
-    <span class="n">noZeroes</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">tmp</span> <span class="o">&gt;=</span> <span class="mh">0xA</span><span class="p">)</span>
-      <span class="n">monitor_put</span> <span class="p">(</span><span class="n">tmp</span><span class="o">-</span><span class="mh">0xA</span><span class="o">+</span><span class="sc">&#39;a&#39;</span> <span class="p">);</span>
-    <span class="k">else</span>
-      <span class="n">monitor_put</span><span class="p">(</span> <span class="n">tmp</span><span class="o">+</span><span class="sc">&#39;0&#39;</span> <span class="p">);</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="kt">void</span> <span class="nf">monitor_write_dec</span><span class="p">(</span><span class="kt">uint32_t</span> <span class="n">n</span><span class="p">)</span>
-<span class="p">{</span>
-  <span class="k">if</span> <span class="p">(</span><span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
-  <span class="p">{</span>
-    <span class="n">monitor_put</span><span class="p">(</span><span class="sc">&#39;0&#39;</span><span class="p">);</span>
-    <span class="k">return</span><span class="p">;</span>
-  <span class="p">}</span>
-
-  <span class="kt">uint32_t</span> <span class="n">acc</span> <span class="o">=</span> <span class="n">n</span><span class="p">;</span>
-  <span class="kt">char</span> <span class="n">c</span><span class="p">[</span><span class="mi">32</span><span class="p">];</span>
-  <span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-  <span class="k">while</span> <span class="p">(</span><span class="n">acc</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
-  <span class="p">{</span>
-      <span class="n">c</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="sc">&#39;0&#39;</span> <span class="o">+</span> <span class="n">acc</span><span class="o">%</span><span class="mi">10</span><span class="p">;</span>
-      <span class="n">acc</span> <span class="o">/=</span> <span class="mi">10</span><span class="p">;</span>
-      <span class="n">i</span><span class="o">++</span><span class="p">;</span>
-  <span class="p">}</span>
-  <span class="n">c</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-
-  <span class="kt">char</span> <span class="n">c2</span><span class="p">[</span><span class="mi">32</span><span class="p">];</span>
-  <span class="n">c2</span><span class="p">[</span><span class="n">i</span><span class="o">--</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-  <span class="kt">int</span> <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-  <span class="k">while</span><span class="p">(</span><span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
-    <span class="n">c2</span><span class="p">[</span><span class="n">i</span><span class="o">--</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span><span class="p">[</span><span class="n">j</span><span class="o">++</span><span class="p">];</span>
-  <span class="n">monitor_write</span><span class="p">(</span><span class="n">c2</span><span class="p">);</span>
-<span class="p">}</span>
-<span class="cp">#endif</span>
 </pre></div>
 </div>
 <div class="section" id="summary">
