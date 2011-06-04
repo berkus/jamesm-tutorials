@@ -47,13 +47,13 @@ Link.ld
 -------
 
 .. todo::
-    Simplify linker script and copypasta in here
+    Simplify linker script and copypaste in here
 
 Makefile
 --------
 
 .. note::
-    Here any indented regions are intended by one HARD tab. Spaces will not work.
+    In makefiles any indented regions are indented by one HARD tab. Spaces will not work.
 
 .. code-block:: make
 

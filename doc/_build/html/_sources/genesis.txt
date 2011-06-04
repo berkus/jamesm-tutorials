@@ -39,12 +39,12 @@ Multiboot is a standard to which GRUB expects a kernel to comply. It is a way fo
 
 So, for example, if your kernel needs to be loaded in a specific VESA mode (which is a bad idea, by the way), you can inform the bootloader of this and it can take care of it for you.
 
-To make your kernel multiboot compatible you need to add a header structure somewhere in your kernel (Actually, the header must be in the first 4KB of the kernel). Usefully, there is a NASM command that lets us embed specific constants in our code - 'dd'. These lines:
+To make your kernel multiboot compatible you need to add a header structure somewhere in your kernel (Actually, the header must be in the first 8KB of the kernel). Usefully, there is a NASM command that lets us embed specific constants in our code - 'dd'. These lines:
 
 .. code-block:: nasm
 
         dd  MBOOT_HEADER_MAGIC      ; GRUB will search for this value on each
-                                    ; 4-byte boundary in your kernel file
+                                    ; 4-byte boundary in the first 8KB of your kernel file
         dd  MBOOT_HEADER_FLAGS      ; How GRUB should load your file / settings
         dd  MBOOT_CHECKSUM          ; To ensure that the above values are correct
 
@@ -69,7 +69,7 @@ Taken directly from the multiboot specification, the information structure looks
 We'll explain fields as we come to them in later chapters, but important to note is that I've used standard C typedefs for 32-bit unsigned integers. We don't get these typedefs as standard with the CFLAGS we use, so we have to define them ourselves. This will help with writing portable and readable code.
 
 .. literalinclude:: ../src/common.h
-    :lines: 0-15,24-
+    :lines: 1-15,32-
 
 Back to the code again...
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -93,6 +93,7 @@ Interfacing C code and assembly is easy. You just need to know the calling conve
     d = func(a, b, c);
 
 Becomes
+
 .. code-block:: nasm
 
     push [c]

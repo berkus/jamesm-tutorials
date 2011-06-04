@@ -63,7 +63,7 @@
 <span class="no">MBOOT_MEM_INFO</span><span class="kd">      equ</span> <span class="mi">1</span><span class="o">&lt;&lt;</span><span class="mi">1</span>    <span class="c1">; Provide your kernel with memory info</span>
 <span class="no">MBOOT_HEADER_MAGIC</span><span class="kd">  equ</span> <span class="mh">0x1BADB002</span> <span class="c1">; Multiboot Magic value</span>
 <span class="c1">; NOTE: We do not use MBOOT_AOUT_KLUDGE. It means that GRUB does not</span>
-<span class="c1">; pass us a symbol table.</span>
+<span class="c1">; pass us a symbol table. GRUB will also require our kernel be in elf32 format.</span>
 <span class="no">MBOOT_HEADER_FLAGS</span><span class="kd">  equ</span> <span class="nv">MBOOT_PAGE_ALIGN</span> <span class="o">|</span> <span class="nv">MBOOT_MEM_INFO</span>
 <span class="no">MBOOT_CHECKSUM</span><span class="kd">      equ</span> <span class="o">-</span><span class="p">(</span><span class="nv">MBOOT_HEADER_MAGIC</span> <span class="o">+</span> <span class="nv">MBOOT_HEADER_FLAGS</span><span class="p">)</span>
 
@@ -75,7 +75,7 @@
 
 <span class="nl">mboot:</span>
     <span class="kd">dd</span>  <span class="nv">MBOOT_HEADER_MAGIC</span>      <span class="c1">; GRUB will search for this value on each</span>
-                                <span class="c1">; 4-byte boundary in your kernel file</span>
+                                <span class="c1">; 4-byte boundary in the first 8KB of your kernel file.</span>
     <span class="kd">dd</span>  <span class="nv">MBOOT_HEADER_FLAGS</span>      <span class="c1">; How GRUB should load your file / settings</span>
     <span class="kd">dd</span>  <span class="nv">MBOOT_CHECKSUM</span>          <span class="c1">; To ensure that the above values are correct</span>
     
@@ -87,12 +87,12 @@
 
     <span class="nf">mov</span> <span class="nb">ebp</span><span class="p">,</span> <span class="mi">0</span>                  <span class="c1">; Initialise the base pointer to zero so we can terminate stack traces</span>
                                 <span class="c1">; here.</span>
-    <span class="nf">mov</span> <span class="nb">esp</span><span class="p">,</span> <span class="nv">stack</span>
+    <span class="nf">mov</span> <span class="nb">esp</span><span class="p">,</span> <span class="nv">stack</span>              <span class="c1">; Set up our own stack.</span>
 
     <span class="nf">cli</span>                         <span class="c1">; Disable interrupts.</span>
     <span class="nf">call</span> <span class="nv">main</span>                   <span class="c1">; call our main() function.</span>
     <span class="nf">jmp</span> <span class="kc">$</span>                       <span class="c1">; Enter an infinite loop, to stop the processor</span>
-<span class="nl">.end:</span>                           <span class="c1">; executing whatever rubbish is in the memory</span>
+<span class="nl">.end:</span>                           <span class="c1">; from executing whatever rubbish is in the memory</span>
                                 <span class="c1">; after our kernel!</span>
 
 <span class="k">section</span> <span class="nv">.bss</span>
@@ -121,9 +121,9 @@
 <li>Allow the kernel to query the environment it is in.</li>
 </ol>
 <p>So, for example, if your kernel needs to be loaded in a specific VESA mode (which is a bad idea, by the way), you can inform the bootloader of this and it can take care of it for you.</p>
-<p>To make your kernel multiboot compatible you need to add a header structure somewhere in your kernel (Actually, the header must be in the first 4KB of the kernel). Usefully, there is a NASM command that lets us embed specific constants in our code - &#8216;dd&#8217;. These lines:</p>
+<p>To make your kernel multiboot compatible you need to add a header structure somewhere in your kernel (Actually, the header must be in the first 8KB of the kernel). Usefully, there is a NASM command that lets us embed specific constants in our code - &#8216;dd&#8217;. These lines:</p>
 <div class="highlight-nasm"><div class="highlight"><pre><span class="kd">dd</span>  <span class="nv">MBOOT_HEADER_MAGIC</span>      <span class="c1">; GRUB will search for this value on each</span>
-                            <span class="c1">; 4-byte boundary in your kernel file</span>
+                            <span class="c1">; 4-byte boundary in the first 8KB of your kernel file</span>
 <span class="kd">dd</span>  <span class="nv">MBOOT_HEADER_FLAGS</span>      <span class="c1">; How GRUB should load your file / settings</span>
 <span class="kd">dd</span>  <span class="nv">MBOOT_CHECKSUM</span>          <span class="c1">; To ensure that the above values are correct</span>
 </pre></div>
@@ -169,8 +169,7 @@
 </pre></div>
 </div>
 <p>We&#8217;ll explain fields as we come to them in later chapters, but important to note is that I&#8217;ve used standard C typedefs for 32-bit unsigned integers. We don&#8217;t get these typedefs as standard with the CFLAGS we use, so we have to define them ourselves. This will help with writing portable and readable code.</p>
-<div class="highlight-c"><div class="highlight"><pre><span class="cp">#endif </span><span class="c1">// COMMON_H</span>
-<span class="cp">// common.h -- Defines typedefs and some global functions.</span>
+<div class="highlight-c"><div class="highlight"><pre><span class="cp">// common.h -- Defines typedefs and some global functions.</span>
 <span class="cp">//             From JamesM&#39;s kernel development tutorials.</span>
 
 <span class="cp">#ifndef COMMON_H</span>
@@ -184,14 +183,6 @@
 <span class="k">typedef</span>          <span class="kt">short</span> <span class="kt">int16_t</span><span class="p">;</span>
 <span class="k">typedef</span> <span class="kt">unsigned</span> <span class="kt">char</span>  <span class="kt">uint8_t</span><span class="p">;</span>
 <span class="k">typedef</span>          <span class="kt">char</span>  <span class="kt">int8_t</span><span class="p">;</span>
-
-<span class="cp">#endif</span>
-
-<span class="cp">#if CHAPTER &gt;= 3</span>
-<span class="kt">void</span> <span class="n">outb</span><span class="p">(</span><span class="kt">uint16_t</span> <span class="n">port</span><span class="p">,</span> <span class="kt">uint8_t</span> <span class="n">value</span><span class="p">);</span>
-<span class="kt">uint8_t</span> <span class="n">inb</span><span class="p">(</span><span class="kt">uint16_t</span> <span class="n">port</span><span class="p">);</span>
-<span class="kt">uint16_t</span> <span class="n">inw</span><span class="p">(</span><span class="kt">uint16_t</span> <span class="n">port</span><span class="p">);</span>
-<span class="cp">#endif </span><span class="c1">// CHAPTER &gt;= 3</span>
 
 <span class="cp">#endif </span><span class="c1">// COMMON_H</span>
 </pre></div>
@@ -215,15 +206,15 @@
 <div class="highlight-c"><div class="highlight"><pre><span class="n">d</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">);</span>
 </pre></div>
 </div>
-<p>Becomes
-.. code-block:: nasm</p>
-<blockquote>
-<div>push [c]
-push [b]
-push [a]
-call func
-mov [d], eax
-add esp, 12     ; The caller (us) must clean up the stack.</div></blockquote>
+<p>Becomes</p>
+<div class="highlight-nasm"><div class="highlight"><pre><span class="nf">push</span> <span class="p">[</span><span class="nv">c</span><span class="p">]</span>
+<span class="nf">push</span> <span class="p">[</span><span class="nv">b</span><span class="p">]</span>
+<span class="nf">push</span> <span class="p">[</span><span class="nv">a</span><span class="p">]</span>
+<span class="nf">call</span> <span class="nv">func</span>
+<span class="nf">mov</span> <span class="p">[</span><span class="nv">d</span><span class="p">],</span> <span class="nb">eax</span>
+<span class="nf">add</span> <span class="nb">esp</span><span class="p">,</span> <span class="mi">12</span>     <span class="c1">; The caller (us) must clean up the stack.</span>
+</pre></div>
+</div>
 <p>So you can see that in our asm snippet above, that &#8216;push ebx&#8217; is actually passing
 a parameter to the function &#8216;main()&#8217;</p>
 <div class="section" id="the-c-code">
