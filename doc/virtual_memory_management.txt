@@ -1,0 +1,378 @@
+===========================
+ Virtual memory management
+===========================
+
+In this chapter we're going to enable paging. Paging serves a twofold purpose - memory protection, and virtual memory (the two being almost inextricably interlinked).
+
+Virtual memory (theory)
+=======================
+
+<i>If you already know what virtual memory is, you can skip this section.</i>
+
+In linux, if you create a tiny test program such as
+
+::
+
+    int main(char argc, char **argv)
+    {
+      return 0;
+    }
+
+, compile it, then run 'objdump -f', you might find something similar to this.
+
+::
+
+    jamesmol@aubergine:~/test> objdump -f a.out
+    
+    a.out:     file format elf32-i386
+    architecture: i386, flags 0x00000112:
+    EXEC_P, HAS_SYMS, D_PAGED
+    start address 0x080482a0
+
+Notice the start address of the program is at 0x80482a0, which is about 128MB into the address space. It may seem strange, then, that this program will run perfectly on machines with < 128MB of RAM.
+
+What the program is actually 'seeing', when it reads and writes memory, is a virtual address space. Parts of the virtual address space are mapped to physical memory, and parts are unmapped. If you try to access an unmapped part, the processor raises a page fault, the operating system catches it, and in POSIX systems delivers a SIGSEGV signal closely followed by SIGKILL.
+
+This abstraction is extremely useful. It means that compilers can produce a program that relies on the code being at an exact location in memory, every time it is run. With virtual memory, the process thinks it is at, for example, 0x080482a0, but actually it could be at physical memory location 0x1000000. Not only that, but processes cannot accidentally (or deliberately) trample other processes' data or code.
+
+Virtual memory of this type is wholly dependent on hardware support. It cannot be emulated by software. Luckily, the x86 has just such a thing. It's called the MMU (memory management unit), and it handles all memory mappings due to segmentation and paging, forming a layer between the CPU and memory (actually, it's part of the CPU, but that's just an implementation detail).
+
+Paging as a concretion of virtual memory
+========================================
+
+Virtual memory is an abstract principle. As such it requires <i>concretion</i> through some system/algorithm. Both segmentation and paging are valid methods for implementing virtual memory. As mentioned in chapter 3 however, segmentation is becoming obsolete. Paging is the newer, better alternative for the x86 architecture.
+
+Paging works by splitting the virtual address space into blocks called <i>pages</i>, which are usually 4KB in size. Pages can then be mapped on to <i>frames</i> - equally sized blocks of physical memory.
+
+Page entries
+~~~~~~~~~~~~
+
+Each process normally has a different set of page mappings, so that virtual memory spaces are independent of each other. In the x86 architecture (32-bit) pages are fixed at 4KB in size. Each page has a corresponding descriptor word, which tells the processor which frame it is mapped to. Note that because pages and frames must be aligned on 4KB boundaries (4KB being 0x1000 bytes), the least significant 12 bits of the 32-bit word are always zero. The architecture takes advantage of this by using them to store information about the page, such as whether it is present, whether it is kernel-mode or user-mode etc. The layout of this word is in the picture on the right.
+
+.. image:: paging_pte.png
+
+The fields in that picture are pretty simple, so let's quickly go through them.
+
+P
+    Set if the page is present in memory.
+R/W
+    If set, that page is writeable. If unset, the page is read-only. This does not apply when code is running in kernel-mode (unless a flag in CR0 is set). 
+U/S 
+    If set, this is a user-mode page. Else it is a supervisor (kernel)-mode page. User-mode code cannot write to or read from kernel-mode pages. 
+Reserved 
+    These are used by the CPU internally and cannot be trampled. 
+A 
+    Set if the page has been accessed (Gets set by the CPU). 
+D 
+    Set if the page has been written to (dirty). 
+AVAIL
+    These 3 bits are unused and available for kernel-use. 
+Page frame address 
+    The high 20 bits of the frame address in physical memory.
+    
+Page directories/tables
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Possibly you've been tapping on your calculator and have worked out that to generate a table mapping each 4KB page to one 32-bit descriptor over a 4GB address space requires 4MB of memory. Perhaps, perhaps not - but it's true.
+
+.. image:: page_directory.png
+
+4MB may seem like a large overhead, and to be fair, it is. If you have 4GB of physical RAM, it's not much. However, if you are working on a machine that has 16MB of RAM, you've just lost a quarter of your available memory! What we want is something progressive, that will take up an amount of space proportionate to the amount of RAM you have.
+
+Well, we don't have that. But intel did come up with something similar - they use a 2-tier system. The CPU gets told about a <i>page directory</i>, which is a 4KB large table, each entry of which points to a <i>page table</i>. The page table is, again, 4KB large and each entry is a <i>page table entry</i>, described above.
+
+This way, The entire 4GB address space can be covered with the advantage that if a page table has no entries, it can be freed and it's present flag unset in the page directory.
+
+Enable paging
+~~~~~~~~~~~~~
+
+Enabling paging is extremely easy.
+
+  1. Copy the location of your page directory into the CR3 register. This must, of course, be the physical address.
+  2. Set the PG bit in the CR0 register. You can do this by OR-ing with 0x80000000.
+
+Page Faults
+===========
+
+When a process does something the memory-management unit doesn't like, a page fault interrupt is thrown. Situations that can cause this are (not complete):
+
+* Reading from or writing to an area of memory that is not mapped (page entry/table's 'present' flag is not set)
+* The process is in user-mode and tries to write to a read-only page.
+* The process is in user-mode and tries to access a kernel-only page.
+* The page table entry is corrupted - the reserved bits have been overwritten.
+* The page fault interrupt is number 14, and looking at chapter 3 we can see that this throws an error code. This error code gives us quite a bit of information about what happened.
+
+Bit 0
+    If set, the fault was not because the page wasn't present. If unset, the page wasn't present.
+Bit 1
+    If set, the operation that caused the fault was a write, else it was a read.
+Bit 2
+    If set, the processor was running in user-mode when it was interrupted. Else, it was running in kernel-mode.
+Bit 3
+    If set, the fault was caused by reserved bits being overwritten.
+Bit 4
+    If set, the fault occurred during an instruction fetch.
+
+The processor also gives us another piece of information - the address that caused the fault. This is located in the CR2 register. Beware that if your page fault hander itself causes another page fault exception this register will be overwritten - so save it early!
+
+Putting it into practice
+========================
+
+At first we need to define the desired virtual positions of our page directory and our page tables in vmm.h, so we can access them later, when paging is enabled.
+
+    #define PAGE_DIR_VIRTUAL_ADDR   0xFFBFF000
+    #define PAGE_TABLE_VIRTUAL_ADDR 0xFFC00000
+
+Then we write two macros to ease getting indices of tables and directories from addresses:
+
+    #define PAGE_DIR_IDX(x) ((uint32_t)x/1024)
+    #define PAGE_TABLE_IDX(x) ((uint32_t)x%1024)
+    
+To make our code more readable we also define some labels. As you remember, bit 1 stands for present, bit 2 for writeable and bit 3 for user accessible:
+
+    #define PAGE_PRESENT   0x1
+    #define PAGE_WRITE     0x2
+    #define PAGE_USER      0x4
+    #define PAGE_MASK      0xFFFFF000
+
+A page directory is basically an array of 1024 unsigned integers which contain the page table's physical address shifted 12 bits to the left, along with the configuration bits mentioned above. Although its a primitive datatype I strongly recommend to create a type page_directory_t:
+
+    typedef u32int_t page_directory_t
+    
+We will also write the following functions, so you might want to add the following prototypes to your vmm.h
+
+::
+
+    // Sets up the environment, page directories etc and enables paging.
+    void init_vmm ();
+    
+    // Changes address space.
+    void switch_page_directory (page_directory_t *pd);
+    
+    // Maps the physical page "pa" into the virtual space at address "va", using 
+    // page protection flags "flags".
+    void map (uint32_t va, uint32_t pa, uint32_t flags);
+    
+    // Removes one page of V->P mappings at virtual address "va".
+    void unmap (uint32_t va);
+    
+    // Returns 1 if the given virtual address is mapped in the address space.
+    // If "*pa" is non-NULL, the physical address of the mapping is placed in *pa.
+    char get_mapping (uint32_t va, uint32_t *pa);
+    
+In our vmm.c we first need to create a global page directory which always represents the one in use right now.
+
+::
+
+    page_directory_t *current_directory;
+
+The first function we will write initializes our paging functionality. It creates the first page directory and tables and activates paging.
+
+::
+
+    void init_vmm ()
+    {
+      int i;
+      uint32_t cr0;
+    
+      register_interrupt_handler (14, &page_fault);
+      
+We need to register a page fault handler. Page faults trigger interrupt number 14, so we register our handler at that position in our interrupt descriptor table.
+
+::
+
+      // Create a page directory.
+      page_directory_t *pd = (page_directory_t*)pmm_alloc_page ();
+      
+      // Initialise it.
+      memset (pd, 0, 0x1000);
+      
+A single page is enough to hold our first page directory (sizeof(page_directory_t) == 4b; 4b * 1024 = 4kb = size of a page).
+
+::
+
+      // Identity map the first 4 MB.
+      pd[0] = pmm_alloc_page () | PAGE_PRESENT | PAGE_WRITE;
+      uint32_t *pt = (uint32_t*) (pd[0] & PAGE_MASK);
+      for (i = 0; i < 1024; i++)
+        pt[i] = i*0x1000 | PAGE_PRESENT | PAGE_WRITE;
+
+Our kernel code currently resides in the first 4MB of our available memory, so we need to make sure that the virtual addresses match the physical addresses of these. If we don't do this our instruction pointer will point to an invalid memory location after activating paging.
+
+######## I don't understand this design #############
+### I know what it does, but not why we need this. ###
+
+::
+
+
+      // Assign the second-last table and zero it.
+      pd[1022] = pmm_alloc_page () | PAGE_PRESENT | PAGE_WRITE;
+      pt = (uint32_t*) (pd[1022] & PAGE_MASK);
+      memset (pt, 0, 0x1000);
+      
+      // The last entry of the second-last table is the directory itself.
+      pt[1023] = (uint32_t)pd | PAGE_PRESENT | PAGE_WRITE;
+    
+      // The last table loops back on the directory itself.
+      pd[1023] = (uint32_t)pd | PAGE_PRESENT | PAGE_WRITE;
+      
+### Up until here ####
+
+::
+
+
+      // Set the current directory.
+      switch_page_directory (pd);
+      
+      // Enable paging.
+      asm volatile ("mov %%cr0, %0" : "=r" (cr0));
+      cr0 |= 0x80000000;
+      asm volatile ("mov %0, %%cr0" : : "r" (cr0));
+      
+Now we activate the directory we just created by switching to it and by setting the most significant bit in cr0.
+
+::
+
+
+      uint32_t pt_idx = PAGE_DIR_IDX((PMM_STACK_ADDR>>12));
+      page_directory[pt_idx] = pmm_alloc_page () | PAGE_PRESENT | PAGE_WRITE;
+      memset (page_tables[pt_idx*1024], 0, 0x1000);
+      
+Now we have to map the the page table where the physical memory manager keeps its page stack, else it will panic on the first "pmm_free_page", because it can't find its stack any more.
+
+::
+
+
+      // Paging is now active. Tell the physical memory manager.
+      pmm_paging_active = 1;
+
+}
+
+And we have to tell it that paging has been activated. Otherwise it won't use our virtual memory for further allocations.
+
+Switching page directories is fairly simple. We just replace current_directory with our newly created one and put its address into the cr3 register:
+
+::
+
+
+    void switch_page_directory (page_directory_t *pd)
+    {
+      current_directory = pd;
+      asm volatile ("mov %0, %%cr3" : : "r" (pd));
+    }
+    
+If we now want to access physical pages, that isn't as easy as before, because we just enabled paging. So to access physical addresses, we have to map virtual ones to physical ones and access the virtual ones. To do so, we need the following function:
+
+::
+
+
+    void map (uint32_t va, uint32_t pa, uint32_t flags)
+    {
+      uint32_t virtual_page = va / 0x1000;
+      uint32_t pt_idx = PAGE_DIR_IDX(virtual_page);
+      
+First we need to find the right page table to insert our mapping. As you know, the page number equals the virtual address, shifted three digits to the right. To calculate the index in our directory, we use our previously defined macro.
+
+::
+
+
+      // Find the appropriate page table for 'va'.
+      if (page_directory[pt_idx] == 0)
+      {
+        // The page table holding this page has not been created yet.
+        page_directory[pt_idx] = pmm_alloc_page() | PAGE_PRESENT | PAGE_WRITE;
+        memset (page_tables[pt_idx*1024], 0, 0x1000);
+      }
+      
+In case the page table does not exist, we have to create it.
+
+::
+
+    
+      // Now that the page table definately exists, we can update the PTE.
+      page_tables[virtual_page] = (pa & PAGE_MASK) | flags;
+    }
+    
+Now we can be sure it exists, so we map our physical address to our virtual address with the given flags.
+
+Now that we can map physical addresses to virtual addresses, we need the possibility to undo that. As you might have imaged out we will name this function unmap:
+
+::
+
+
+    void unmap (uint32_t va)
+    {
+      uint32_t virtual_page = va / 0x1000;
+      
+First we have to find the right page to our address.
+
+::
+
+      
+      page_tables[virtual_page] = 0;
+      
+Then we just zero it, so it doesn't exist any more.
+
+::
+
+
+      asm volatile ("invlpg (%0)" : : "a" (va));
+    }
+
+We have to inform the CPU that we have invalidated a page mapping, because it has to clear this entry in the TLB. TLB stands for translation lookaside buffer, which caches address translation reqest answers, to improve the translation's performance. As with any other cache, it has to be invalidated after a change of the underlying data.
+
+If we want to know if a virtual address has a mapping and to which address it is mapped, we have to do this on our own, too:
+
+::
+
+
+    char get_mapping (uint32_t va, uint32_t *pa)
+    {
+      uint32_t virtual_page = va / 0x1000;
+      uint32_t pt_idx = PAGE_DIR_IDX(virtual_page);
+      
+As before, we need to find the right page table which maps our virtual address to a physical address.
+
+::
+
+    
+      // Find the appropriate page table for 'va'.
+      if (page_directory[pt_idx] == 0)
+        return 0;
+        
+If the page table is empty or doesn't exist (which is the same in our case) then the virtual address is not mapped anywhere and we return false.
+
+::
+
+    
+      if (page_tables[virtual_page] != 0)
+      {
+        if (pa) *pa = page_tables[virtual_page] & PAGE_MASK;
+        return 1;
+      }
+    }
+    
+If it exists, we look up the physical address and put it into pa, if it (pa) is not a nullpointer. After that we return true;
+
+Last but not least, we have to deal with the ominous page fault handler which I teasered earlier. In case of a page fault, we want to know, where it happend and for what reason.
+
+::
+
+
+    void page_fault (registers_t *regs)
+    {
+      uint32_t cr2;
+      asm volatile ("mov %%cr2, %0" : "=r" (cr2));
+
+CR2 holds the address which caused the page fault, we can use that later to debug the occuring error.
+
+::
+
+    
+      printk ("Page fault at 0x%x, faulting address 0x%x\n", regs->eip, cr2);
+      printk ("Error code: %x\n", regs->err_code);
+      panic ("");
+      for (;;) ;
+    }
+    
+Then we output the faulting address and the instruction pointer to be able to reproduce the error. The error code gives you information about the page we tried to access. The error code is equal to the access flags of the page, if it exists.

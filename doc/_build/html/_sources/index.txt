@@ -16,6 +16,8 @@ Contents:
    genesis
    the_screen
    the_gdt_and_idt
+   virtual_memory_management
+   multithreading
 
 Indices and tables
 ==================

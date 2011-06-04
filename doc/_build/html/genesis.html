@@ -170,8 +170,8 @@
 </div>
 <p>We&#8217;ll explain fields as we come to them in later chapters, but important to note is that I&#8217;ve used standard C typedefs for 32-bit unsigned integers. We don&#8217;t get these typedefs as standard with the CFLAGS we use, so we have to define them ourselves. This will help with writing portable and readable code.</p>
 <div class="highlight-c"><div class="highlight"><pre><span class="cp">#endif </span><span class="c1">// COMMON_H</span>
-<span class="c1">// common.h -- Defines typedefs and some global functions.</span>
-<span class="c1">//             From JamesM&#39;s kernel development tutorials.</span>
+<span class="cp">// common.h -- Defines typedefs and some global functions.</span>
+<span class="cp">//             From JamesM&#39;s kernel development tutorials.</span>
 
 <span class="cp">#ifndef COMMON_H</span>
 <span class="cp">#define COMMON_H</span>
@@ -218,18 +218,18 @@
 <p>Becomes
 .. code-block:: nasm</p>
 <blockquote>
-push [c]
+<div>push [c]
 push [b]
 push [a]
 call func
 mov [d], eax
-add esp, 12     ; The caller (us) must clean up the stack.</blockquote>
+add esp, 12     ; The caller (us) must clean up the stack.</div></blockquote>
 <p>So you can see that in our asm snippet above, that &#8216;push ebx&#8217; is actually passing
 a parameter to the function &#8216;main()&#8217;</p>
 <div class="section" id="the-c-code">
 <h4>The C code<a class="headerlink" href="#the-c-code" title="Permalink to this headline">¶</a></h4>
-<div class="highlight-c"><div class="highlight"><pre><span class="c1">// main.c -- Defines the C-code kernel entry point, calls initialisation routines.</span>
-<span class="c1">//           Made for JamesM&#39;s tutorials &lt;www.jamesmolloy.co.uk&gt;</span>
+<div class="highlight-c"><div class="highlight"><pre><span class="cp">// main.c -- Defines the C-code kernel entry point, calls initialisation routines.</span>
+<span class="cp">//           Made for JamesM&#39;s tutorials &lt;www.jamesmolloy.co.uk&gt;</span>
 <span class="cp">#include &quot;multiboot.h&quot;</span>
 <span class="cp">#include &quot;common.h&quot;</span>
 
@@ -357,7 +357,7 @@ trampoline, and you&#8217;re ready to start printing to the screen!</p>
     </div>
     <div class="footer">
         &copy; Copyright 2011, James Molloy.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.5.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.7.
     </div>
   </body>
 </html>

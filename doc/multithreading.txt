@@ -1,0 +1,226 @@
+================
+ Multithreading 
+================
+
+Eventually most people want to have their OS run two things (seemingly) at once. This is called multitasking, and is in my opinion one of the final hurdles before you can call your project an 'operating system' or 'kernel'.
+
+Firstly a quick recap; A CPU (with one core) cannot run multiple tasks simultaneously. Instead we rely on switching tasks quickly enough that it seems to an observer that they are all running at the same time. Each task gets given a "timeslice" or a "time to live" in which to use the CPU and memory. That timeslice is normally ended by a timer interrupt which calls the scheduler.
+
+It should be noted that in more advanced operating systems a process' timeslice will normally also be terminated when it performs a synchronous I/O operation, and in such operating systems (all but the most trivial) this is the normal case.
+
+When the scheduler is called, it saves the stack and base pointers in a task structure, restores the stack and base pointers of the process to switch to, switches address spaces, and jumps to the instruction that the new task left off at the last time it was swapped.
+
+Threads
+=======
+
+To demonstrate how multitasking works, we will implement threads. Threads are basically processes sharing the same heapspace but each of them has its own stack. Usually they can be in one of the following states:
+
+.. image:: thread_states.png
+
+To create a new thread, we need a data structure threat_t to hold all data that is to be saved. it basically contains the threads id and the contents of the stack pointer register, the base pointer register and #### why ebx, esi, edi? ####. Put this into a file named thread.h along with the following headers:
+
+::
+
+    thread_t *init_threading ();
+    thread_t *create_thread (int (*fn)(void*), void *arg, uint32_t *stack);
+    void switch_thread (thread_t *next);
+
+To use multithreading the right way, we have to make the currently executing process a thread (it actually is one already, but it has no representing data structure). We just set a global variable thread_t \*current_thread to an empty thread structure. As soon as we call switch_thread(), it will be filled with the correct values. We need to store the next available thread id as well. Put it into a global variable next_tid in thread.c and initialize it to 0.
+
+::
+
+    thread_t *init_threading ()
+    {
+      thread_t *thread = kmalloc (sizeof (thread_t));
+      thread->id  = next_tid++;
+    
+      current_thread = thread;
+    
+      return thread;
+    }
+
+If we want to create a new thread, other than the currently running one, we need a function that creates a new thread from a function and assigns it its own stack. The arguments of the function have to be passed as well:
+
+::
+
+    thread_t *create_thread (int (*fn)(void*), void *arg, uint32_t *stack)
+    {
+      thread_t *thread = kmalloc (sizeof (thread_t));
+      memset (thread, 0, sizeof (thread_t));
+      thread->id = next_tid++;
+
+Create a new empty thread and allocate space for it.
+
+::
+
+      *--stack = (uint32_t)arg;
+      *--stack = (uint32_t)&thread_exit; // Fake return address.
+      *--stack = (uint32_t)fn;
+      *--stack = 0; // Fake EBP.
+
+Here we put the address where we saved the arguments for the function, a pointer to the return function, which will be called after the thread ends, a pointer to the function itself and a fake base pointer onto the stack. If you wonder what ``*--stack`` does: Internally, the variable stack will be translated into an address which points to the first entry in our stack. Stacks usually grow downwards, so by decrementing the address, we access the next stack entry.
+
+::
+  
+      thread->ebp = (uint32_t)stack;
+      thread->esp = (uint32_t)stack;
+
+The esi and edi registers haven't been touched yet, so we leave them as they are.
+
+::
+
+      return thread;
+    }
+
+And return our newly created thread.
+
+Now that we can have multiple threads, we need the possibility to dispatch them. Basically we just save the running thread into a thread_t data structure and fill the registers with the values saved in the new thread's struct:
+
+::
+
+    void switch_thread (thread_t *next)
+    {
+      asm volatile ("mov %%esp, %0" : "=r" (current_thread->esp));
+      asm volatile ("mov %%ebp, %0" : "=r" (current_thread->ebp));
+      asm volatile ("mov %%ebx, %0" : "=r" (current_thread->ebx));
+      asm volatile ("mov %%esi, %0" : "=r" (current_thread->esi));
+      asm volatile ("mov %%edi, %0" : "=r" (current_thread->edi));
+
+Save the old registers into the current thread's data structure.
+
+::
+
+      current_thread = next;
+
+Replace the old thread with the new one.
+
+::
+
+      asm volatile ("mov %0, %%edi" : : "r" (next->edi));
+      asm volatile ("mov %0, %%esi" : : "r" (next->esi));
+      asm volatile ("mov %0, %%ebx" : : "r" (next->ebx));
+      asm volatile ("mov %0, %%esp" : : "r" (next->esp));
+      asm volatile ("mov %0, %%ebp" : : "r" (next->ebp));
+    }
+
+And fill the registers with its values.
+
+
+Scheduler
+=========
+
+As soon as we are dealing with more than one thread at a time, we have to make sure that every thread will get some execution time on a regular basis. To do that we need a scheduling mechanism. In this tutorial we will build a simple round robin scheduler which just cycles through our threads, dispatching one after another. For the scheduler to be able to switch threads, it has to know, in what order to schedule them. Therefore we implement a linked thread list.
+
+So we need to define a struct which represents a thread as a list item. We need a pointer to the respective thread_t and one to the next list item. I assume you can do that on your own. Put it into a file named "scheduler.h" along with the following function headers:
+
+::
+
+    void init_scheduler (thread_t *initial_thread);
+    void thread_is_ready (thread_t *t);
+    void thread_not_ready (thread_t *t);
+    void schedule ();
+
+We need two queues for our threads. One in which we keep all of them and one which only contains the ready ones. With these defined, we can already write down our scheduling logic into the following function:
+
+::
+
+    void schedule ()
+    {
+      if (!ready_queue) return;
+
+If our ready queue is empty we don't have anything to do.
+
+::
+
+      thread_list_t *iterator = ready_queue;
+      while (iterator->next)
+        iterator = iterator->next;
+      iterator->next = current_thread;
+      current_thread = ready_queue;
+      ready_queue = ready_queue->next;
+
+We have to assume that the thread we interrupted is not finished yet. Thus we have to add it to the end of our queue again, to make sure it will be executed again later. The thread to execute next is now at the beginning of our queue and ready to be dispatched.
+
+::
+
+      switch_thread (current_thread->thread);
+    }
+
+Now the next thread in our queue is running.
+
+
+As you see, the schedule function doesn't do anything as long as we don't define any threads. To do so, we have to initialize our scheduler with an initial thread (which will be our idle thread):
+
+::
+
+    void init_scheduler(thread_t *initial_thread) {
+      current_thread = (thread_list_t*) kmalloc (sizeof (thread_list_t*));
+      current_thread->thread = initial_thread;
+      current_thread->next = 0;
+      ready_queue = 0;
+    }
+
+As you might imagine, scheduling with only one thread might get a little dull after a while. To add threads to our ready queue, we use the following function:
+
+::
+
+    void thread_is_ready (thread_t *t)
+    {
+      thread_list_t *item = (thread_list_t*) kmalloc (sizeof (thread_list_t*));
+      item->thread = t;
+      item->next = 0;
+ 
+At first we put our thread into a list item by allocating the space and adjust the pointers accordingly. It will be appended to the end of the ready queue, so its next pointer is null.
+
+::
+
+      if (!ready_queue)
+      {
+        ready_queue = item;
+      }
+
+If the ready queue is empty we just let it point to our item, if not, we have to append it.
+
+::
+
+      else
+      {
+        // Iterate through the ready queue to the end.
+        thread_list_t *iterator = ready_queue;
+        while (iterator->next)
+        iterator = iterator->next;
+
+        // Add the item.
+        iterator->next = item;
+      }
+    }
+
+If a thread is waiting for something, it doesn't make much sense to dispatch it. So we need a function to remove this thread from the ready queue.
+
+::
+
+    void thread_not_ready (thread_t *t)
+    {
+      // Attempt to find the thread in the ready queue.
+      thread_list_t *iterator = ready_queue;
+      // Special case if the thread is first in the queue.
+      if (iterator->thread == t)
+      {
+        ready_queue = iterator->next;
+        kfree (iterator);
+        return;
+      }
+
+      while (iterator->next)
+      {
+        if (iterator->next->thread == t)
+        {
+          thread_list_t *tmp = iterator->next;
+          iterator->next = tmp->next;
+          kfree (tmp);
+        }
+        iterator = iterator->next;
+      }
+    }
+
+To remove the thread, we first have to find it in our queue. If it is the first one in the queue, we just delete it and move the second one into first place. If not, we have to iterate over the list and cut it out, if we find it.
