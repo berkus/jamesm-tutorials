@@ -1,0 +1,84 @@
+===========================
+ Physical memory management
+===========================
+
+When the kernel is sufficiently booted, we will have a kernel heap active and operational. The way we code heaps, though, usually requires that virtual memory is enabled. So we need a simple alternative to allocate memory before the heap is active.
+
+If we want to allocate memory dynamically, we have to keep track of what is already allocated and what is still available. Later on we will use virtual memory to handle this for us, but to achieve that we need a different strategy.
+
+If you come from a C++ background, you may have heard of 'placement new'. This is a version of new that takes a parameter. Instead of calling malloc, as it normally would, it creates the object at the address specified. We are going to use a very similar concept.
+
+As we're allocating quite early on in the kernel bootup, we can make the assumption that nothing that is allocated will ever need to be freed. This simplifies things greatly. We can just create a stack in some free memory and save our dynamic data structures in it.
+
+So we need to know where to start. Thankfully our bootloader grub stores the first address of the lower and upper memory in the multiboot structure passed to our main function. We just put our stack there. Thats all information we need to initialize our physical memory management:
+
+::
+
+    void init_pmm (uint32_t start)
+    {
+      pmm_location = (start + 0x1000) & PAGE_MASK;
+    }
+    
+We want every page aligned. If they aren't, the system won't accept our page directories or tables (will be explained in the next chapter). So we add 0x1000 (the page size) to the stack address and null the last three bits.
+
+To allocate pages we just return the current address and add 0x1000 to it. That way the next address is exactly the beginning of the next page to allocate.
+
+::
+    
+    uint32_t pmm_alloc_page ()
+    {
+      if (pmm_paging_active)
+      {
+        // Quick sanity check.
+        if (pmm_stack_loc == PMM_STACK_ADDR)
+          panic ("Error:out of memory.");
+
+        // Pop off the stack.
+        pmm_stack_loc -= sizeof (uint32_t);
+        uint32_t *stack = (uint32_t*)pmm_stack_loc;
+  
+        return *stack;
+      }
+      
+If paging is already enabled, we might as well use our virtual memory. Our stack will be projected into virtual memory space, but for now, we just allocate a page on our physically addressed stack.
+
+::
+
+      else
+      {
+        return pmm_location += 0x1000;
+      }
+    }
+    
+At some point we might want to free some memory. So we need this functionality as well:
+
+::
+
+    void pmm_free_page (uint32_t p)
+    {
+      if (p < pmm_location) return;
+
+We have to ignore everything before our pmm_location because as mentioned before, we don't want to delete our early allocated pages.
+
+::
+
+      if (pmm_stack_max <= pmm_stack_loc)
+      {
+        map (pmm_stack_max, p, PAGE_PRESENT | PAGE_WRITE);
+        pmm_stack_max += 4096;
+      }
+      
+We don't want our free page stack to run out some time, so we just map the currently freed page at the top of the stack. The map function will be implemented later so for testing purposes you might want to comment it out for now.
+
+::
+
+      else
+      {
+        // Else we have space on the stack, so push.
+        uint32_t *stack = (uint32_t*)pmm_stack_loc;
+        *stack = p;
+        pmm_stack_loc += sizeof (uint32_t);
+      }
+    }
+
+If we don't have space issues, we just push our free page onto the free page stack. Now we have all we need to realize virtual memory management.
