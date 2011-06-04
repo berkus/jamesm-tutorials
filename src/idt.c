@@ -1,3 +1,4 @@
+#if CHAPTER >= 4
 //
 // idt.c - Initialises the GDT and IDT, and defines the 
 //         default ISR and IRQ handler.
@@ -36,6 +37,7 @@ void init_idt ()
   // Zero the IDT to start with.
   memset (&idt_entries, 0, sizeof (idt_entry_t) * 255);
 
+#if CHAPTER >= 5
   // Remap the irq table.
   outb (0x20, 0x11);
   outb (0xA0, 0x11);
@@ -47,6 +49,7 @@ void init_idt ()
   outb (0xA1, 0x01);
   outb (0x21, 0x0);
   outb (0xA1, 0x0);
+#endif // CHAPTER >= 5
 
   // Set each gate in the IDT that we care about - that is:
   // 0-32:  Used by the CPU to report conditions, both normal and error.
@@ -83,6 +86,7 @@ void init_idt ()
   idt_set_gate (29, (uint32_t)isr29, 0x08, 0x8E);
   idt_set_gate (30, (uint32_t)isr30, 0x08, 0x8E);
   idt_set_gate (31, (uint32_t)isr31, 0x08, 0x8E);
+#if CHAPTER >= 5
   idt_set_gate (32, (uint32_t)irq0, 0x08, 0x8E);
   idt_set_gate (33, (uint32_t)irq1, 0x08, 0x8E);
   idt_set_gate (34, (uint32_t)irq2, 0x08, 0x8E);
@@ -100,6 +104,7 @@ void init_idt ()
   idt_set_gate (46, (uint32_t)irq14, 0x08, 0x8E);
   idt_set_gate (47, (uint32_t)irq15, 0x08, 0x8E);
   idt_set_gate (255, (uint32_t)isr255, 0x08, 0x8E);
+#endif
 
   // Tell the CPU about our new IDT.
   idt_flush ((uint32_t)&idt_ptr);
@@ -129,6 +134,12 @@ void idt_handler (registers_t *regs)
   }
 }
 
+void register_interrupt_handler (uint8_t n, interrupt_handler_t h)
+{
+  interrupt_handlers [n] = h;
+}
+
+#if CHAPTER >= 5
 // This gets called from our ASM interrupt handler stub.
 void irq_handler(registers_t *regs)
 {
@@ -145,8 +156,6 @@ void irq_handler(registers_t *regs)
     // Send reset signal to master. (As well as slave, if necessary).
     outb(0x20, 0x20);
 }
+#endif
 
-void register_interrupt_handler (uint8_t n, interrupt_handler_t h)
-{
-  interrupt_handlers [n] = h;
-}
+#endif // CHAPTER >= 4

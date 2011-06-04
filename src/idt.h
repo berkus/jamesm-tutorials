@@ -1,3 +1,4 @@
+#if CHAPTER >= 4
 // 
 // idt.h - Defines the interface for initialising the IDT.
 //         Also defines needed structures.
@@ -10,6 +11,7 @@
 
 #include "common.h"
 
+#if CHAPTER >= 5
 // A few defines to make life a little easier
 #define IRQ0 32
 #define IRQ1 33
@@ -27,6 +29,7 @@
 #define IRQ13 45
 #define IRQ14 46
 #define IRQ15 47
+#endif // CHAPTER >= 5
 
 // IDT initialisation function.
 void init_idt ();
@@ -98,6 +101,7 @@ extern void isr29();
 extern void isr30();
 extern void isr31();
 extern void isr255();
+#if CHAPTER >= 5
 extern void irq0 ();
 extern void irq1 ();
 extern void irq2 ();
@@ -114,5 +118,7 @@ extern void irq12();
 extern void irq13();
 extern void irq14();
 extern void irq15();
-
+#endif // CHAPTER >= 5
 #endif
+
+#endif // CHAPTER >= 4

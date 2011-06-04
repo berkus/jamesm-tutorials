@@ -1,3 +1,4 @@
+#if CHAPTER >= 4
 // 
 // gdt.h - Defines the interface for initialising the GDT.
 //         Also defines needed structures.
@@ -36,3 +37,5 @@ typedef struct
 } __attribute__((packed)) gdt_ptr_t;
 
 #endif
+
+#endif // CHAPTER >= 4

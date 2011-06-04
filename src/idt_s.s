@@ -3,13 +3,13 @@
 ;          Based on code from Bran's kernel development tutorials.
 ;          Rewritten for JamesM's kernel development tutorials.
 
-[GLOBAL idt_flush]    ; Allows the C code to call idt_flush().
-
+global idt_flush:function idt_flush.end-idt_flush ; Allows the C code to call idt_flush().
 idt_flush:
     mov eax, [esp+4]  ; Get the pointer to the IDT, passed as a parameter. 
     lidt [eax]        ; Load the IDT pointer.
     ret
-
+.end:
+        
 ; This macro creates a stub for an ISR which does NOT pass it's own
 ; error code (adds a dummy errcode byte).
 %macro ISR_NOERRCODE 1
@@ -95,6 +95,8 @@ IRQ  15,    47
 ; C function in idt.c
 extern idt_handler
 
+global isr_common_stub:function isr_common_stub.end-isr_common_stub
+
 ; This is our common ISR stub. It saves the processor state, sets
 ; up for kernel mode segments, calls the C-level fault handler,
 ; and finally restores the stack frame.
@@ -125,9 +127,12 @@ isr_common_stub:
     popa                     ; Pops edi,esi,ebp...
     add esp, 8               ; Cleans up the pushed error code and pushed ISR number
     iret                     ; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
+.end
 
 ; C function in idt.c
 extern irq_handler
+
+global irq_common_stub:function irq_common_stub.end-irq_common_stub
 
 ; This is our common IRQ stub. It saves the processor state, sets
 ; up for kernel mode segments, calls the C-level fault handler,

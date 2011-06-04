@@ -1,3 +1,4 @@
+#if CHAPTER >= 4
 //
 // gdt.c - Initialises the GDT and IDT, and defines the 
 //         default ISR and IRQ handler.
@@ -15,23 +16,34 @@ extern void gdt_flush (uint32_t);
 static void gdt_set_gate (int32_t,uint32_t,uint32_t,uint8_t,uint8_t);
 
 // The GDT itself.
+#if CHAPTER >= 10
 gdt_entry_t gdt_entries [6];
+#else
+gdt_entry_t gdt_entries [3];
+#endif
 // Pointer structure to give to the CPU.
 gdt_ptr_t gdt_ptr;
 
 void init_gdt ()
 {
+#if CHAPTER >= 10
   // We have six entries in the GDT - two for kernel mode, two for user mode, the NULL descriptor,
   // and one for the TSS (task state segment)
-
+#endif
   // The limit is the last valid byte from the start of the GDT - i.e. the size of the GDT - 1.
+#if CHAPTER >= 10
   gdt_ptr.limit = sizeof (gdt_entry_t) * 6 - 1;
+#else
+  gdt_ptr.limit = sizeof (gdt_entry_t) * 3 - 1;
+#endif
   gdt_ptr.base = (uint32_t) &gdt_entries;
 
   gdt_set_gate (0, 0, 0, 0, 0);             // Null segment.
   gdt_set_gate (1, 0, 0xFFFFF, 0x9A, 0xCF); // Code segment.
   gdt_set_gate (2, 0, 0xFFFFF, 0x92, 0xCF); // Data segment.
+#if CHAPTER >= 10
   gdt_set_gate (3, 0, 0xFFFFF, 0xFA, 0xCF); // User mode code segment.
+#endif
 
   // Inform the CPU about our GDT.
   gdt_flush ((uint32_t) &gdt_ptr);
@@ -49,3 +61,4 @@ static void gdt_set_gate(int32_t num, uint32_t base, uint32_t limit, uint8_t acc
     gdt_entries[num].granularity |= gran & 0xF0;
     gdt_entries[num].access      = access;
 }
+#endif // CHAPTER >= 4
