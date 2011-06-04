@@ -20,10 +20,10 @@ There's actually only a few lines of code in that snippet:
 
 .. code-block:: nasm
 
+    cli
+    mov esp, stack
     push ebx
     mov  ebp, 0
-    mov esp, stack
-    cli
     call main
     jmp $
 
@@ -74,7 +74,10 @@ We'll explain fields as we come to them in later chapters, but important to note
 Back to the code again...
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-So, immediately on bootup, the asm snippet tells the CPU to push the contents of EBX onto the stack, clear the stack frame pointer (this is to help debuggers and stack tracers - more in a later chapter) and disable interrupts. It then calls a function called "main", then enter an infinite loop.
+So, immediately on bootup, the asm snippet tells the CPU to allocate us a stack at known location, push the contents of EBX onto the stack, clear the stack frame pointer (this is to help debuggers and stack tracers - more in a later chapter) and disable interrupts. It then calls a function called "main", then enter an infinite loop.
+
+.. note::
+    Technically Multiboot specification requires bootloader to disable interrupts before passing control to your code, but we do it anyway to be on the safe side.
 
 All is good, but the code won't link yet. We haven't defined main()!
 
