@@ -15,7 +15,7 @@
 void init_gdt ();
 
 // This structure contains the value of one GDT entry.
-// We use the attribute "packed" to tell GCC not to change any
+// We use the attribute "packed" to tell GCC not to change
 // any of the alignment in the structure.
 typedef struct
 {
@@ -32,7 +32,7 @@ typedef struct
 // lgdt instruction.
 typedef struct
 {
-    uint16_t limit;       // The upper 16 bits of all selector limits.
+    uint16_t limit;       // The Global Descriptor Table limit.
     uint32_t base;        // The address of the first gdt_entry_t struct.
 } __attribute__((packed)) gdt_ptr_t;
 

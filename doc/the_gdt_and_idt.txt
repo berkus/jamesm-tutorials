@@ -21,7 +21,7 @@ providing virtual memory - segmentation and paging.
 With segmentation, every memory access is evaluated with respect to a
 segment. That is, the memory address is added to the segment's base
 address, and checked against the segment's length. You can think of a
-segment as a window into the address space - The process does not know
+segment as a window into the address space - the process does not know
 it's a window, all it sees is a linear address space starting at zero
 and going up to the segment length.
 
@@ -52,7 +52,7 @@ and three being the least. Processes in ring zero are said to be
 running in *kernel-mode*, or *supervisor-mode*, because they can
 use instructions like *sti* and *cli*, something which most
 processes can't. Normally, rings 1 and 2 are unused. They can,
-technically, access a greater subset of the supervisor-mode
+technically, be allowed to access a greater subset of the supervisor-mode
 instructions than ring 3 can. Some microkernel architectures use these
 for running *server processes*, or drivers.
 
@@ -64,8 +64,6 @@ represent both ring 0 and ring 3.
 Practical
 ---------
 
-.. image:: gdt_idt_gdt_format_2.png
-
 OK, that was one humongous chunk
 of theory, lets get into the nitty gritty of implementing this.
 
@@ -75,8 +73,8 @@ you could accidentally overwrite it, then your computer would
 triple-fault and reset. Not clever.
 
 In the x86, we have 6 segmentation registers. Each holds an offset
-into the GDT. They are cs (code segment), ds (data segment), es (extra
-segment), fs, gs, ss (stack segment). The code segment *must*
+into the GDT. They are CS (code segment), DS (data segment), ES (extra
+segment), FS, GS, SS (stack segment). The code segment *must*
 reference a descriptor which is set as a 'code segment'. There is a
 flag for this in the access byte. The rest should all reference a
 descriptor which is set as a 'data segment'.
@@ -90,11 +88,14 @@ A GDT entry looks like this:
     :start-after: init_gdt ();
     :end-before: // This struct describes a GDT pointer.
 
-.. image:: gdt_idt_gdt_format_1.png
-
 Most of those fields should be
-self-explanatory. The format of the access byte is given on the right
-above, and the format of the granularity byte is here on the right.
+self-explanatory. The format of the access byte is given here:
+
+.. image:: gdt_idt_gdt_format_2.png
+
+and the format of the granularity byte is here:
+
+.. image:: gdt_idt_gdt_format_1.png
 
 P
     Is segment present? (1 = Yes)
@@ -105,7 +106,7 @@ DT
 Type
     Segment type - code segment / data segment.
 G
-    Granularity (0 = 1 byte, 1 = 1kbyte)
+    Granularity (0 = 1 byte, 1 = 4kbytes)
 D
     Operand size (0 = 16bit, 1 = 32bit)
 0
@@ -127,8 +128,9 @@ Those struct definitions should go in a header file,
 gdt.h, along with a prototype.
 
 ::
- // Initialisation function.
- void init_gdt();
+
+    // Initialisation function.
+    void init_gdt();
 
 gdt.c
 ~~~~~
@@ -215,7 +217,7 @@ loads the segment selectors for the data and code segments. Notice
 that each GDT entry is 8 bytes, and the kernel code descriptor is the
 second segment, so it's offset is 0x08. Likewise the kernel data
 descriptor is the third, so it's offset is 16 = 0x10. Here we move the
-value 0x10 into the data segment registers ds,es,fd,gs,ss. To change
+value 0x10 into the data segment registers DS,ES,FS,GS,SS. To change
 the code segment is slightly different; we must do a far jump. This
 changes the CS implicitly.
 
