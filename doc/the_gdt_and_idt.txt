@@ -236,7 +236,7 @@ processor can register 'signal handlers' (interrupt handlers) that deal
 with the interrupt, then return to the code that was running before it
 fired. Interrupts can be fired externally, via IRQs, or internally,
 via the 'int n' instruction. There are very useful reasons for wanting
-to do fire interrupts from software, but that's for another chapter!
+to fire interrupts from software, but that's for another chapter!
 
 The *Interrupt Descriptor Table* tells the processor where to find
 handlers for each interrupt. It is very similar to the GDT. It is just
@@ -259,7 +259,7 @@ ID     Description
 1      Debug exception
 2      Non maskable interrupt
 3      Breakpoint exception
-4      'Into detected overflow'
+4      Overflow / INTO instruction
 5      Out of bounds exception
 6      Invalid opcode exception
 7      No coprocessor exception
@@ -292,8 +292,8 @@ Just like the GDT, there are some structures that need defining:
 .. image:: gdt_idt_idt_format_1.png
 
 See? Very similar to the GDT entry and ptr structs. The flags field
-format is shown above. The lower 5-bits should be constant at
-0b0110 - 6 in decimal. The DPL describes the privilege level we
+format is shown above. The lower 5-bits should be constant
+0b00110 - 6 in decimal. The DPL describes the privilege level we
 expect to be called from - in our case zero, but as we progress we'll
 have to change that to 3. The P bit signifies the entry is
 present. Any descriptor with this bit clear will cause a "Interrupt
@@ -324,7 +324,7 @@ interrupt handlers - but we haven't written any yet!
 
 When the processor receives an interrupt, it saves the contents of the
 essential registers (instruction pointer, stack pointer, code and data
-segments, flags register) to the stack. It then finds the interrupt
+segments, flags register) on the stack. It then finds the interrupt
 handler location from our IDT and jumps to it.
 
 Now, just like POSIX signal handlers, you don't get given any information

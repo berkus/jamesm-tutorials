@@ -60,8 +60,8 @@ typedef struct
   uint32_t eip, cs, eflags, useresp, ss; // Pushed by the processor automatically.
 } registers_t;
 
-// An interrupt handler. It is a function pointer which takes a pointer to a structure containing
-// register values.
+// An interrupt handler. It is a pointer to a function which takes a pointer 
+// to a structure containing register values.
 typedef void (*interrupt_handler_t)(registers_t *);
 
 // Allows us to register an interrupt handler.
