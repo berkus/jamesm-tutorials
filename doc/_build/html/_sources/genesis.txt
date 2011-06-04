@@ -163,9 +163,7 @@ If you open bochsout.txt, at the bottom you should see something like:
  00074621500i[CPU  ] | CR3=0x00000000 CR4=0x00000000
  00074621500i[CPU  ] >> jmp .+0xfffffffe (0x00100027) : EBFE
 
-.. figure:: images/genesis_bochs.png
-    
-    Bochs booting your kernel
+.. image:: genesis_bochs.png
 
 Notice what the value of EAX is? 0xdeadbeef - the return value of
 main(). Congratulations, you now have a multiboot compatible assembly

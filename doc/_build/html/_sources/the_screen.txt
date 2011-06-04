@@ -46,24 +46,26 @@ the diagram below.
 
 4 bits for a colour code gives us 15 possible colours we can display:
 
-<table>
-<tr><td>0</td><td>black</td></tr>
-<tr><td>1</td><td><span style="color:blue">blue</span></td></tr>
-<tr><td>2</td><td><span style="color:green">green</span></tr>
-<tr><td>3</td><td><span style="color:cyan">cyan</span></td></tr>
-<tr><td>4</td><td><span style="color:red">red</span></td></tr>
-<tr><td>5</td><td><span style="color:magenta">magenta</span></td></tr>
-<tr><td>6</td><td><span style="color:brown">brown</span></tr>
-<tr><td>7</td><td><span style="color:lightgray">light grey</span></td></tr>
-<tr><td>8</td><td><span style="color:darkgray">dark grey</span></td></tr>
-<tr><td>9</td><td><span style="color:lightblue">light blue</span></td></tr>
-<tr><td>10</td><td><span style="color:lightgreen">light green</span></td></tr>
-<tr><td>11</td><td><span style="color:lightcyan">light cyan</span></td></tr>
-<tr><td>12</td><td><span style="color:red">light red</span></td></tr>
-<tr><td>13</td><td><span style="color:magenta">light magneta</span></td></tr>
-<tr><td>14</td><td><span style="color:brown">light brown</span></td></tr>
-<tr><td>15</td><td>white</td></tr>
-</table>
+===== ====================
+Index Colour
+===== ====================
+0     black
+1     blue
+2     green
+3     cyan
+4     red
+5     magenta
+6     brown
+7     light grey
+8     dark grey
+9     light blue
+10    light green
+11    light cyan
+12    light red
+13    light magenta
+14    light brown / yellow
+15    white
+===== ====================
 
 The VGA controller also has some ports on the main I/O bus, which you
 can use to send it specific instructions. (Among others) it has a

@@ -1,0 +1,432 @@
+=================
+ The GDT and IDT
+=================
+
+The GDT and the IDT are descriptor tables. They are arrays of flags
+and bit values describing the operation of either the segmentation
+system (in the case of the GDT), or the interrupt vector table (IDT).
+
+They are, unfortunately, a little theory-heavy, but bear with it
+because it'll be over soon!
+
+The Global Descriptor Table
+===========================
+
+Theory
+------
+
+The x86 architecture has two methods of memory protection and of
+providing virtual memory - segmentation and paging.
+
+With segmentation, every memory access is evaluated with respect to a
+segment. That is, the memory address is added to the segment's base
+address, and checked against the segment's length. You can think of a
+segment as a window into the address space - The process does not know
+it's a window, all it sees is a linear address space starting at zero
+and going up to the segment length.
+
+With paging, the address space is split into (usually 4KB, but this can
+change) blocks, called pages. Each page can be mapped into physical
+memory - mapped onto what is called a 'frame'. Or, it can be
+unmapped. Like this you can create virtual memory spaces.
+
+Both of these methods have their advantages, but paging is much
+better. Segmentation is, although still usable, fast becoming obsolete
+as a method of memory protection and virtual memory. In fact, the
+x86-64 architecture requires a flat memory model (one segment with a
+base of 0 and a limit of 0xFFFFFFFF) for some of it's instructions to
+operate properly.
+
+Segmentation is, however, totally in-built into the x86
+architecture. It's impossible to get around it. So here we're going to
+show you how to set up your own Global Descriptor Table - a list of
+segment descriptors.
+
+As mentioned before, we're going to try and set up a flat memory
+model. The segment's window should start at 0x00000000 and extend to
+0xFFFFFFFF (the end of memory). However, there is one thing that
+segmentation can do that paging can't, and that's *set the ring level*. 
+
+A ring is a privilege level - zero being the most privileged,
+and three being the least. Processes in ring zero are said to be
+running in *kernel-mode*, or *supervisor-mode*, because they can
+use instructions like *sti* and *cli*, something which most
+processes can't. Normally, rings 1 and 2 are unused. They can,
+technically, access a greater subset of the supervisor-mode
+instructions than ring 3 can. Some microkernel architectures use these
+for running *server processes*, or drivers.
+
+A segment descriptor carries inside it a number
+representing the ring level it applies to. To change ring levels
+(which we'll do later on), among other things, we need segments that
+represent both ring 0 and ring 3.
+
+Practical
+---------
+
+.. image:: gdt_idt_gdt_format_2.png
+
+OK, that was one humongous chunk
+of theory, lets get into the nitty gritty of implementing this.
+
+One thing I forgot to mention is that GRUB sets a GDT up for you. The
+problem is that, similar to GRUB's stack, you don't know where that GDT is, or what's in it. So
+you could accidentally overwrite it, then your computer would
+triple-fault and reset. Not clever.
+
+In the x86, we have 6 segmentation registers. Each holds an offset
+into the GDT. They are cs (code segment), ds (data segment), es (extra
+segment), fs, gs, ss (stack segment). The code segment *must*
+reference a descriptor which is set as a 'code segment'. There is a
+flag for this in the access byte. The rest should all reference a
+descriptor which is set as a 'data segment'.
+
+gdt.h
+~~~~~
+
+A GDT entry looks like this:
+
+.. literalinclude:: ../src/gdt.h
+    :start-after: init_gdt ();
+    :end-before: // This struct describes a GDT pointer.
+
+.. image:: gdt_idt_gdt_format_1.png
+
+Most of those fields should be
+self-explanatory. The format of the access byte is given on the right
+above, and the format of the granularity byte is here on the right.
+
+P
+    Is segment present? (1 = Yes)
+DPL
+    Descriptor privilege level - Ring 0 - 3.
+DT
+    Descriptor type
+Type
+    Segment type - code segment / data segment.
+G
+    Granularity (0 = 1 byte, 1 = 1kbyte)
+D
+    Operand size (0 = 16bit, 1 = 32bit)
+0
+    Should always be zero.
+A
+    Available for system use (always zero).
+
+To tell the processor where to find our GDT, we have to give it the
+address of a special pointer structure:
+
+.. literalinclude:: ../src/gdt.h
+    :start-after: gdt_entry_t
+    :end-before: #endif
+
+The base is the address of the first entry in our GDT, the limit being
+the size of the table minus one (the last valid address in the table).
+
+Those struct definitions should go in a header file,
+gdt.h, along with a prototype.
+
+::
+ // Initialisation function.
+ void init_gdt();
+
+gdt.c
+~~~~~
+
+In gdt.c, we have a few declarations:
+
+.. NB: must include code here because of all the #ifs in this file.
+
+::
+
+    //
+    // gdt.c - Initialises the GDT and IDT, and defines the 
+    //         default ISR and IRQ handler.
+    //         Based on code from Bran's kernel development tutorials.
+    //         Rewritten for JamesM's kernel development tutorials.
+    //
+    
+    #include "common.h"
+    #include "gdt.h"
+    
+    // Lets us access our ASM functions from our C code.
+    extern void gdt_flush (uint32_t);
+    
+    // Internal function prototypes.
+    static void gdt_set_gate (int32_t,uint32_t,uint32_t,uint8_t,uint8_t);
+    
+    // The GDT itself.
+    gdt_entry_t gdt_entries [3];
+    
+    // Pointer structure to give to the CPU.
+    gdt_ptr_t gdt_ptr;
+
+
+Notice the gdt_flush function - this will be defined in an ASM file,
+and will load our GDT pointer for us.
+
+::
+
+    void init_gdt ()
+    {
+      // The limit is the last valid byte from the start of the GDT - i.e. the size of the GDT - 1.
+      gdt_ptr.limit = sizeof (gdt_entry_t) * 3 - 1;
+      gdt_ptr.base = (uint32_t) &gdt_entries;
+      
+      gdt_set_gate (0, 0, 0, 0, 0);             // Null segment.
+      gdt_set_gate (1, 0, 0xFFFFF, 0x9A, 0xCF); // Code segment.
+      gdt_set_gate (2, 0, 0xFFFFF, 0x92, 0xCF); // Data segment.
+      
+      // Inform the CPU about our GDT.
+      gdt_flush ((uint32_t) &gdt_ptr);
+    }
+
+.. literalinclude:: ../src/gdt.c
+    :start-after: }
+    :end-before: #endif
+
+
+Lets just analyse that code for a moment. init_gdt initially sets up
+the gdt pointer structure - the limit is the size of each gdt entry *
+3 - we have 3 entries. Why 3? well, we have a code and data segment
+descriptor for the kernel, and a null entry. This *must* be present, or Bad Things will happen.
+
+gdt_init then sets up the 3 descriptors, by calling
+gdt_set_gate. gdt_set_gate just does some severe bit-twiddling and
+shifting, and should be self-explanatory with a hard stare at it.
+Notice that the only thing that changes between the 2 segment
+descriptors is the access byte - 0x9A, 0x92. You can see,
+if you map out the bits and compare them to the format diagram above,
+the bits that are changing are the type field. Type specifies whether the segment is a code segment or a data
+segment (the processor checks this often, and can be the source of
+much frustration).
+
+Finally, we have our ASM function that will write the GDT
+pointer.
+
+gdt_s.s
+~~~~~~~
+.. literalinclude:: ../src/gdt_s.s
+    :language: nasm
+
+This function takes the first parameter passed to it (in esp+4), loads
+the value it points to into the GDT (using the lgdt instruction), then
+loads the segment selectors for the data and code segments. Notice
+that each GDT entry is 8 bytes, and the kernel code descriptor is the
+second segment, so it's offset is 0x08. Likewise the kernel data
+descriptor is the third, so it's offset is 16 = 0x10. Here we move the
+value 0x10 into the data segment registers ds,es,fd,gs,ss. To change
+the code segment is slightly different; we must do a far jump. This
+changes the CS implicitly.
+
+The Interrupt Descriptor Table
+==============================
+
+Theory
+------
+
+There are times when you want to interrupt the processor. You want to
+stop it doing what it is doing, and force it to do something
+different. An example of this is when an timer or keyboard
+interrupt request (IRQ) fires. An interrupt is like a POSIX
+signal - it tells you that something of interest has happened. The
+processor can register 'signal handlers' (interrupt handlers) that deal
+with the interrupt, then return to the code that was running before it
+fired. Interrupts can be fired externally, via IRQs, or internally,
+via the 'int n' instruction. There are very useful reasons for wanting
+to do fire interrupts from software, but that's for another chapter!
+
+The *Interrupt Descriptor Table* tells the processor where to find
+handlers for each interrupt. It is very similar to the GDT. It is just
+an array of entries, each one corresponding to an interrupt
+number. There are 256 possible interrupt numbers, so 256 must be
+defined. If an interrupt occurs and there is no entry for it (even a
+NULL entry is fine), the processor will panic and reset.
+
+Faults, traps and exceptions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The processor will sometimes need to signal your kernel. Something major may have happened, such as a divide-by-zero, or a page fault. To do this, it uses the first 32 interrupts. It is therefore doubly important that all of these are mapped and non-NULL - else the CPU will triple-fault and reset (bochs will panic with an 'unhandled exception' error).
+
+The special, CPU-dedicated interrupts are shown below.
+
+==     ==================================================
+ID     Description
+==     ==================================================
+0      Division by zero exception
+1      Debug exception
+2      Non maskable interrupt
+3      Breakpoint exception
+4      'Into detected overflow'
+5      Out of bounds exception
+6      Invalid opcode exception
+7      No coprocessor exception
+8      Double fault *(pushes an error code)*
+9      Coprocessor segment overrun
+10     Bad TSS *(pushes an error code)*
+11     Segment not present *(pushes an error code)*
+12     Stack fault *(pushes an error code)*
+13     General protection fault *(pushes an error code)*
+14     Page fault *(pushes an error code)*
+15     Unknown interrupt exception
+16     Coprocessor fault
+17     Alignment check exception
+18     Machine check exception
+19-31  Reserved
+=========================================================
+
+Practical
+---------
+
+idt.h
+~~~~~
+
+Just like the GDT, there are some structures that need defining:
+
+.. literalinclude:: ../src/idt.h
+    :start-after: #endif // CHAPTER >= 5
+    :end-before: #if CHAPTER >= 5
+
+.. image:: gdt_idt_idt_format_1.png
+
+See? Very similar to the GDT entry and ptr structs. The flags field
+format is shown above. The lower 5-bits should be constant at
+0b0110 - 6 in decimal. The DPL describes the privilege level we
+expect to be called from - in our case zero, but as we progress we'll
+have to change that to 3. The P bit signifies the entry is
+present. Any descriptor with this bit clear will cause a "Interrupt
+Not Handled" exception.
+
+idt.c
+~~~~~
+.. literalinclude:: ../src/idt.c
+    :start-after: #if CHAPTER >= 4
+    :end-before: #if CHAPTER >= 5
+.. literalinclude:: ../src/idt.c
+    :start-after: #endif // CHAPTER >= 5
+    :end-before: #if CHAPTER >= 5
+.. literalinclude:: ../src/idt.c
+    :start-after: // Tell the CPU about our new IDT
+    :end-before: // This gets called from our ASM interrupt handler stub
+
+idt_s.s
+~~~~~~~~~~~
+We need to define the idt_flush function in assembler:
+
+.. literalinclude:: ../src/idt_s.s
+    :language: nasm
+    :end-before: ; This macro creates
+
+Great! We've got code that will tell the CPU where to find our
+interrupt handlers - but we haven't written any yet!
+
+When the processor receives an interrupt, it saves the contents of the
+essential registers (instruction pointer, stack pointer, code and data
+segments, flags register) to the stack. It then finds the interrupt
+handler location from our IDT and jumps to it.
+
+Now, just like POSIX signal handlers, you don't get given any information
+about what interrupt was called when your handler is run. So,
+unfortunately, we can't just have one common handler, we must write a
+different handler for each interrupt we want to handle. This involves a lot of grind, so like good engineers we want to keep the amount of duplicated code to a
+minimum. We do this by writing many handlers that just push the
+interrupt number (hardcoded in the ASM) onto the stack, and call a
+common handler function.
+
+Unfortunately we have another problem - some
+interrupts also push an error code onto the stack. We can't call a
+common function without a common stack frame, so for those that don't
+push an error code, we push a dummy one, so the stack is the same.
+
+.. code-block:: nasm
+
+ global isr0
+ isr0:
+   cli                 ; Disable interrupts
+   push byte 0         ; Push a dummy error code (if ISR0 doesn't push it's own error code)
+   push byte 0         ; Push the interrupt number (0)
+   jmp isr_common_stub ; Go to our common handler.
+
+That sample routine will work, but 32 versions of that still sounds
+like a lot of code. We can use NASM's macro facility to cut this down,
+though:
+
+.. literalinclude:: ../src/idt_s.s
+    :language: nasm
+    :start-after: ; error code (adds a dummy errcode byte).
+    :end-before: ; This macro creates a stub for an IRQ
+
+We can now make a stub handler function just by doing
+
+.. code-block:: nasm
+
+ ISR_NOERRCODE 0
+ ISR_NOERRCODE 1
+ ...
+
+Much less work, and anything that makes our lives easier is worth
+doing. A quick look at the intel manual will tell you that only
+interrupts 8, 10-14 inclusive push error codes onto the stack. The
+rest require dummy error codes.
+
+*We're almost there, I promise!*
+
+Only 2 more things left to do - one is to create an ASM common handler
+function. The other is to create a higher-level C handler function.
+
+.. literalinclude:: ../src/idt_s.s 
+    :language: nasm
+    :start-after: ; C function in idt.c
+    :end-before: ; C function in idt.c
+
+This piece of code is our common interrupt handler. It firstly uses
+the 'pusha' command to push all the general purpose registers on the
+stack. It uses the 'popa' command to restore them at the end. It also
+gets the current data segment selector and pushes that onto the
+stack, sets all the segment registers to the kernel data
+selector, and restores them afterwards. This won't actually have an
+effect at the moment, but it will when we switch to user-mode. Notice
+it also calls a higher-level interrupt handler - *idt_handler*.
+
+When an interrupt fires, the processor automatically pushes
+information about the processor state onto the stack. The code
+segment, instruction pointer, flags register, stack segment and stack
+pointer are pushed. The IRET instruction is specifically designed to
+return from an interrupt. It pops these values off the stack and
+returns the processor to the state it was in originally.
+
+idt.c, again
+~~~~~~~~~~~~
+
+In idt.c, we define the handler function and a quick way of registering interrupt handlers.
+
+.. literalinclude:: ../src/idt.c
+    :start-after: // This gets called from our ASM interrupt handler stub
+    :end-before: #if CHAPTER >= 5
+
+Here we use a simple interrupt dispatch system. an *interrupt_handler_t* is typedefed
+as a function pointer, taking one argument. It uses
+a structure registers_t, which is a representation of all the
+registers we pushed, and we defined in idt.h.
+
+Testing it out
+~~~~~~~~~~~~~~
+
+Now we can test it out - Add this to your main() function:
+
+::
+
+ init_gdt();
+ init_idt();
+ asm volatile ("int $0x3");
+
+.. image:: gdt_idt_bochs.png
+
+This causes a software interrupt. You should see the
+message printed out just like the screenshot above (as you don't have a handler registered for interrupt 3 yet)
+
+Congratulations! You've now got a kernel that can handle interrupts, and set
+up its own segmentation tables (a pretty hollow victory, considering
+all that code and theory, but unfortunately there's no getting around it!).
+
+The sample code for this tutorial can be found :download:`here <../tarballs/the_gdt_and_idt.tar.gz>`.

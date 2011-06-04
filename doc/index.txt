@@ -15,6 +15,7 @@ Contents:
    environment_setup
    genesis
    the_screen
+   the_gdt_and_idt
 
 Indices and tables
 ==================

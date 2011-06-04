@@ -23,6 +23,7 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="top" title="jamesm-tutorials v2.0.0 documentation" href="index.html" />
+    <link rel="next" title="The GDT and IDT" href="the_gdt_and_idt.html" />
     <link rel="prev" title="Genesis" href="genesis.html" /> 
   </head>
   <body>
@@ -32,6 +33,9 @@
         <li class="right" style="margin-right: 10px">
           <a href="genindex.html" title="General Index"
              accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="the_gdt_and_idt.html" title="The GDT and IDT"
+             accesskey="N">next</a> |</li>
         <li class="right" >
           <a href="genesis.html" title="Genesis"
              accesskey="P">previous</a> |</li>
@@ -79,28 +83,71 @@ VGA hardware uses these to designate foreground and background
 colours (4 bits each). The splitting of this 16-bit value is shown in
 the diagram below.</p>
 <div class="figure">
-<img alt="the_screen_word_format.png" src="the_screen_word_format.png" />
+<img alt="_images/the_screen_word_format.png" src="_images/the_screen_word_format.png" />
 <p class="caption">Word format</p>
 </div>
 <p>4 bits for a colour code gives us 15 possible colours we can display:</p>
-<p>&lt;table&gt;
-&lt;tr&gt;&lt;td&gt;0&lt;/td&gt;&lt;td&gt;black&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;1&lt;/td&gt;&lt;td&gt;&lt;span style=&#8221;color:blue&#8221;&gt;blue&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;2&lt;/td&gt;&lt;td&gt;&lt;span style=&#8221;color:green&#8221;&gt;green&lt;/span&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;3&lt;/td&gt;&lt;td&gt;&lt;span style=&#8221;color:cyan&#8221;&gt;cyan&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;4&lt;/td&gt;&lt;td&gt;&lt;span style=&#8221;color:red&#8221;&gt;red&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;5&lt;/td&gt;&lt;td&gt;&lt;span style=&#8221;color:magenta&#8221;&gt;magenta&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;6&lt;/td&gt;&lt;td&gt;&lt;span style=&#8221;color:brown&#8221;&gt;brown&lt;/span&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;7&lt;/td&gt;&lt;td&gt;&lt;span style=&#8221;color:lightgray&#8221;&gt;light grey&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;8&lt;/td&gt;&lt;td&gt;&lt;span style=&#8221;color:darkgray&#8221;&gt;dark grey&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;9&lt;/td&gt;&lt;td&gt;&lt;span style=&#8221;color:lightblue&#8221;&gt;light blue&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;10&lt;/td&gt;&lt;td&gt;&lt;span style=&#8221;color:lightgreen&#8221;&gt;light green&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;11&lt;/td&gt;&lt;td&gt;&lt;span style=&#8221;color:lightcyan&#8221;&gt;light cyan&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;12&lt;/td&gt;&lt;td&gt;&lt;span style=&#8221;color:red&#8221;&gt;light red&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;13&lt;/td&gt;&lt;td&gt;&lt;span style=&#8221;color:magenta&#8221;&gt;light magneta&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;14&lt;/td&gt;&lt;td&gt;&lt;span style=&#8221;color:brown&#8221;&gt;light brown&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;15&lt;/td&gt;&lt;td&gt;white&lt;/td&gt;&lt;/tr&gt;
-&lt;/table&gt;</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="20%" />
+<col width="80%" />
+</colgroup>
+<thead valign="bottom">
+<tr><th class="head">Index</th>
+<th class="head">Colour</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr><td>0</td>
+<td>black</td>
+</tr>
+<tr><td>1</td>
+<td>blue</td>
+</tr>
+<tr><td>2</td>
+<td>green</td>
+</tr>
+<tr><td>3</td>
+<td>cyan</td>
+</tr>
+<tr><td>4</td>
+<td>red</td>
+</tr>
+<tr><td>5</td>
+<td>magenta</td>
+</tr>
+<tr><td>6</td>
+<td>brown</td>
+</tr>
+<tr><td>7</td>
+<td>light grey</td>
+</tr>
+<tr><td>8</td>
+<td>dark grey</td>
+</tr>
+<tr><td>9</td>
+<td>light blue</td>
+</tr>
+<tr><td>10</td>
+<td>light green</td>
+</tr>
+<tr><td>11</td>
+<td>light cyan</td>
+</tr>
+<tr><td>12</td>
+<td>light red</td>
+</tr>
+<tr><td>13</td>
+<td>light magenta</td>
+</tr>
+<tr><td>14</td>
+<td>light brown / yellow</td>
+</tr>
+<tr><td>15</td>
+<td>white</td>
+</tr>
+</tbody>
+</table>
 <p>The VGA controller also has some ports on the main I/O bus, which you
 can use to send it specific instructions. (Among others) it has a
 control register at 0x3D4 and a data register at 0x3D5. We will use
@@ -412,7 +459,7 @@ hexadecimal really is required if you&#8217;re going to check the validity
 of pointers. Decimal is optional but it&#8217;s nice to see something in
 base 10 every once in a while!</p>
 <div class="figure">
-<img alt="the_screen_screenshot.png" src="the_screen_screenshot.png" />
+<img alt="_images/the_screen_screenshot.png" src="_images/the_screen_screenshot.png" />
 <p class="caption">Hello, world!</p>
 </div>
 <p>You could also have a look at the linux 0.1 code - that has an
@@ -456,6 +503,9 @@ your life a lot easier when it comes to debugging.</p>
   <h4>Previous topic</h4>
   <p class="topless"><a href="genesis.html"
                         title="previous chapter">Genesis</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="the_gdt_and_idt.html"
+                        title="next chapter">The GDT and IDT</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
     <li><a href="_sources/the_screen.txt"
@@ -484,6 +534,9 @@ your life a lot easier when it comes to debugging.</p>
         <li class="right" style="margin-right: 10px">
           <a href="genindex.html" title="General Index"
              >index</a></li>
+        <li class="right" >
+          <a href="the_gdt_and_idt.html" title="The GDT and IDT"
+             >next</a> |</li>
         <li class="right" >
           <a href="genesis.html" title="Genesis"
              >previous</a> |</li>
