@@ -20,9 +20,9 @@ There's actually only a few lines of code in that snippet:
 
 .. code-block:: nasm
 
+    mov esp, stack
     push ebx
     mov  ebp, 0
-    mov esp, stack
     cli
     call main
     jmp $

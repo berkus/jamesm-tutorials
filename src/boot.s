@@ -27,11 +27,11 @@ global start:function start.end-start ; Kernel entry point.
 extern main                     ; This is the entry point of our C code
 
 start:
+    mov esp, stack              ; Set up our own stack.
     push ebx                  	; Push a pointer to the multiboot info structure.
 
     mov ebp, 0                  ; Initialise the base pointer to zero so we can terminate stack traces
                                 ; here.
-    mov esp, stack              ; Set up our own stack.
 
     cli                         ; Disable interrupts.
     call main                   ; call our main() function.
