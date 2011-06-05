@@ -6,7 +6,12 @@ SSOURCES=$(shell find -name *.s)
 SOBJECTS=$(patsubst %.s, %.o, $(SSOURCES))
 
 CC=gcc
-LD=ld
+ifeq ($(shell ls /usr/bin/ld.bfd 2>/dev/null),/usr/bin/ld.bfd)
+LD:=/usr/bin/ld.bfd
+else
+LD:=ld
+endif
+
 CFLAGS=-nostdlib -fno-builtin -m32
 LDFLAGS=-melf_i386 -Tlink.ld
 ASFLAGS=-felf
@@ -33,7 +38,7 @@ docs:
 
 .s.o:
 	@echo Assembling $<
-	@nasm $(ASFLAGS) $<
+	@nasm $(ASFLAGS) -DCHAPTER=$(CHAPTER) $<
 
 .c.o:
 	@echo Compiling $<

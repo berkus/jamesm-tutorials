@@ -1,3 +1,4 @@
+#if CHAPTER >= 7
 //
 // vmm.c -- Defines the functions related to paging and virtual memory management.
 //          Written for JamesM's kernel development tutorials.
@@ -124,3 +125,4 @@ void page_fault (registers_t *regs)
   panic ("");
   for (;;) ;
 }
+#endif // CHAPTER >= 7

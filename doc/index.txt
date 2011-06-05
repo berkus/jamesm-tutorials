@@ -16,6 +16,8 @@ Contents:
    genesis
    the_screen
    the_gdt_and_idt
+   irqs_and_the_pit
+   backtracing_and_symbol_lookup
    physical_memory_management
    virtual_memory_management
    multithreading

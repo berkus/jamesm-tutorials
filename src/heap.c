@@ -1,3 +1,4 @@
+#if CHAPTER >= 8
 // 
 // heap.c -- Defines functions and structures for the kernel heap.
 //           Written for JamesM's kernel development tutorials.
@@ -130,3 +131,4 @@ void glue_chunk (header_t *chunk)
   if (chunk->next == 0)
     free_chunk (chunk);
 }
+#endif // CHAPTER >= 8

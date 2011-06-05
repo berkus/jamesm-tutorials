@@ -1,3 +1,4 @@
+#if CHAPTER >= 6
 //
 // panic.c -- Defines the interface for bringing the system to an abnormal halt.
 //            Written for JamesM's kernel development tutorials.
@@ -30,4 +31,4 @@ void print_stack_trace ()
     ebp = (uint32_t*) *ebp;
   }
 }
-
+#endif // CHAPTER >= 6

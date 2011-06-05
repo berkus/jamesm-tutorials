@@ -16,13 +16,22 @@ bits 32                         ; All instructions should be 32-bit.
 section .text
 
 global mboot                    ; Make 'mboot' accessible from C.
+extern code
+extern bss
+extern end
 
 mboot:
     dd  MBOOT_HEADER_MAGIC      ; GRUB will search for this value on each
                                 ; 4-byte boundary in the first 8KB of your kernel file.
     dd  MBOOT_HEADER_FLAGS      ; How GRUB should load your file / settings
     dd  MBOOT_CHECKSUM          ; To ensure that the above values are correct
-    
+    dd mboot
+          dd  code              ; Start of kernel '.text' (code) section.
+          dd  bss               ; End of kernel '.data' section.
+          dd  end               ; End of kernel.
+          dd  start             ; Kernel entry point (initial EIP).
+
+        
 global start:function start.end-start ; Kernel entry point.
 extern main                     ; This is the entry point of our C code
 

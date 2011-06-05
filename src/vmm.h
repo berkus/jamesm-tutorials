@@ -1,3 +1,4 @@
+#if CHAPTER >= 7
 //
 // vmm.h -- Defines the interface for and structures relating to paging and virtual memory management.
 //          Written for JamesM's kernel development tutorials.
@@ -38,4 +39,4 @@ void unmap (uint32_t va);
 char get_mapping (uint32_t va, uint32_t *pa);
 
 #endif
-
+#endif // CHAPTER >= 7

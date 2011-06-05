@@ -1,3 +1,4 @@
+#if CHAPTER >= 6
 //
 // elf.h -- Defines routines for dealing with Executable and Linking Format files.
 //          Written for JamesM's kernel developement tutorials.
@@ -9,9 +10,7 @@
 #include "common.h"
 #include "multiboot.h"
 
-#define ELF32_ST_BIND(i) ((i)>>4)
 #define ELF32_ST_TYPE(i) ((i)&0xf)
-#define ELF32_ST_INFO(b, t)	(((b)<<4)+((t)&0xf))
 
 typedef struct
 {
@@ -52,3 +51,4 @@ elf_t elf_from_multiboot (multiboot_t *mb);
 const char *elf_lookup_symbol (uint32_t addr, elf_t *elf);
 
 #endif
+#endif // CHAPTER >= 6

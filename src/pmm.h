@@ -1,3 +1,4 @@
+#if CHAPTER >= 7
 //
 // pmm.h -- Defines the functions related to physical memory management.
 //          Written for JamesM's kernel development tutorials.
@@ -18,3 +19,4 @@ void pmm_free_page (uint32_t p);
 
 
 #endif
+#endif // CHAPTER >= 7

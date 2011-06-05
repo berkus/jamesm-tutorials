@@ -15,21 +15,21 @@
 #include "timer.h"
 #endif
 #if CHAPTER >= 6
+#include "elf.h"
+#endif
+#if CHAPTER >= 7
 #include "pmm.h"
 #include "vmm.h"
 #endif
-#if CHAPTER >= 7
+#if CHAPTER >= 8
 #include "heap.h"
 #endif
 
-#if CHAPTER >= 8
-#include "elf.h"
-#endif
 #if CHAPTER >= 9
 #include "thread.h"
 #endif
 
-#if CHAPTER >= 8
+#if CHAPTER >= 6
 elf_t kernel_elf;
 #endif
 
@@ -47,22 +47,30 @@ int main(multiboot_t *mboot_ptr)
   monitor_clear();
 #endif
 
+#if CHAPTER == 3
+  monitor_write("Hello, world!");
+#endif
+
 #if CHAPTER >= 4
   init_gdt ();
   init_idt ();
 #endif
+#if CHAPTER == 4
+  asm volatile("int $0x3");
+#endif
+
 #if CHAPTER >= 5
   init_timer (20);
 #endif
-#if CHAPTER >= 6
+#if CHAPTER >= 7
   init_pmm (mboot_ptr->mem_upper);
   init_vmm ();
 #endif
-#if CHAPTER >= 7
+#if CHAPTER >= 8
   init_heap ();
 #endif
 
-#if CHAPTER >= 6
+#if CHAPTER >= 7
   // Find all the usable areas of memory and inform the physical memory manager about them.
   uint32_t i = mboot_ptr->mmap_addr;
   while (i < mboot_ptr->mmap_addr + mboot_ptr->mmap_length)
@@ -85,7 +93,7 @@ int main(multiboot_t *mboot_ptr)
     i += me->size + sizeof (uint32_t);
   }
 #endif
-#if CHAPTER >= 8
+#if CHAPTER >= 6
   kernel_elf = elf_from_multiboot (mboot_ptr);
 #endif
 #if CHAPTER >= 9
@@ -97,7 +105,7 @@ int main(multiboot_t *mboot_ptr)
   thread_is_ready(t);
 #endif
 
-#if CHAPTER >= 8
+#if CHAPTER >= 6
   panic ("Testing panic mechanism");
   for (;;);
 #endif

@@ -130,7 +130,9 @@ void idt_handler (registers_t *regs)
   else
   {
     printk ("Unhandled interrupt: %d\n", regs->int_no);
+#if CHAPTER >= 6
     panic ("Unhandled interrupt");
+#endif // CHAPTER >= 6
   }
 }
 

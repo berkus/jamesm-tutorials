@@ -1,4 +1,5 @@
-;
+%if CHAPTER >= 4
+                                ;
 ; gdt.s -- contains global descriptor table setup code.
 ;          Based on code from Bran's kernel development tutorials.
 ;          Rewritten for JamesM's kernel development tutorials.
@@ -19,3 +20,4 @@ gdt_flush:
 .flush:
     ret
 .end:
+%endif ; CHAPTER >= 4

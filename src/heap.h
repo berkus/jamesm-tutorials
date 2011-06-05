@@ -1,3 +1,4 @@
+#if CHAPTER >= 8
 // 
 // heap.h -- Declares functions and structures for the kernel heap.
 //           Written for JamesM's kernel development tutorials.
@@ -27,4 +28,4 @@ void *kmalloc (uint32_t l);
 void kfree (void *p);
 
 #endif
-
+#endif // CHAPTER >= 8

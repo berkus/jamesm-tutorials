@@ -1,3 +1,4 @@
+%if CHAPTER >= 9
 ;;; 
 ;;; thread.s -- Declares functions for thread switching.
 ;;;             Written for JamesM's kernel development tutorials.
@@ -26,4 +27,4 @@ switch_thread:
         mov edi, [eax+16]
 jmp $        
         ret
- 
+ %endif ; CHAPTER >= 9

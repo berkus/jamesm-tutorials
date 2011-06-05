@@ -1,0 +1,250 @@
+===============================
+ Backtracing and symbol lookup
+===============================
+
+There will be times when your kernel gets into a bad state and you want to print a backtrace of all function calls up to the current point (like the "bt" function in GDB).
+
+There can be many times that this is useful - if an assertion fails, if you throw a kernel panic, or if you are developing your own in-kernel debugger.
+
+Backtracing
+===========
+
+Backtracing is the act of trawling the call stack from the current position back up, finding the locations that function calls were made from. It can be difficult on some platforms or with some compiler optimisations because of the lack of a frame pointer, but GCC on 32-bit x86 by default uses one so backtracing is extremely easy.
+
+What is a frame pointer? Simple. When a function begins (in the "prologue"), the first thing it does is create a stack frame for itself by decrementing the stack pointer (ESP):
+
+.. code-block:: text
+
+   +-------------------------------+
+   |Previous function's stack frame|
+   +-------------------------------+
+   |Return address, pushed by CALL |
+   +-------------------------------+
+   |  This function's stack frame  |
+   |                               |
+   |                               |
+   |                               |
+   +-------------------------------+   <--- ESP
+
+The compiler can either emit code to reference variables in the stack frame either relative to the stack pointer (ESP+X), but that could change (for example if stack-based `alloca` is used), so alternatively it could save the address of the *top* of the stack frame into a frame pointer register or *base register* (EBP-Y):
+
+.. code-block:: text
+
+   +-------------------------------+
+   |Previous function's stack frame|
+   +-------------------------------+
+   |Return address, pushed by CALL |
+   +-------------------------------+
+   |  This function's stack frame  |   <--- EBP
+   |                               |
+   |                               |
+   |                               |
+   +-------------------------------+   <--- ESP
+
+How does this help us? Well if using a base pointer, the first thing a function prologue will do is save the previous function's base pointer, so the stack layout looks more like this:
+
+.. code-block:: text
+
+   +-------------------------------+
+   |Previous function's stack frame|
+   +-------------------------------+
+   |Return address, pushed by CALL |
+   +-------------------------------+
+   |    Previous function's EBP    |   <--- EBP
+   +-------------------------------+
+   |  This function's stack frame  |
+   |                               |
+   |                               |
+   +-------------------------------+   <--- ESP
+
+What should jump out at you from this diagram is that you can treat the value of EBP as a pointer to the previous value of EBP, and so on - it is therefore a linked list that trawls through the stack back to the beginning.
+
+And from any EBP value, you can find the corresponding return address (thus where the function was called from) by looking up in the stack one slot (EBP+4).
+
+Printing a stack trace
+----------------------
+
+With this information, you can construct a backtracing function rather simply:
+
+::
+
+    void print_stack_trace ()
+    {
+      uint32_t *ebp, *eip;
+      asm volatile ("mov %%ebp, %0" : "=r" (ebp)); // Start with the current EBP value.
+      while (ebp)
+      {
+        eip = ebp+1;
+        printk ("   [0x%x]\n", *eip);
+        ebp = (uint32_t*) *ebp;
+      }
+    }
+
+You can see that the code is relying on ebp becoming zero at the end of the stack - this is reliable because in boot.s we zeroed the frame pointer:
+
+.. code-block:: nasm
+
+    mov ebp, 0
+
+With this function you will get a backtrace, but only of addresses. It'd be more useful if you could get the function names instead of just their addresses?
+
+ELF and symbol lookup
+=====================
+
+The kernel you are booting is in ELF format. This is the UNIX standard format for linker object files (\*.o), shared libraries (\*.so), and executables. It caters to both linkers, which want quite fine-grained information about different sections of code and data in order to link correctly, and binary loaders that just care whether to load something executable, read-only or read-write and where the entry point is.
+
+To this end, the information in an ELF file is duplicated:
+
+* *Sections* Are valid when an object is still to be linked (\*.o), and may still be valid when the final image is produced (\*.so or executable), or may be stripped out at this point. They provide quite fine-grained information about different pieces of code and data. They also contain a symbol table section, which maps symbol names to addresses.
+* *Segments* Are valid after the object has been finally linked, and coalesce like sections, rejecting data not useful at runtime.
+
+As long as you haven't run "strip" on your kernel, it will have a symbol table, and GRUB will actually have loaded it in for you if you know where to look.
+
+Multiboot.h, a slight reprise
+-----------------------------
+
+In the second chapter (:ref:`genesis`) you blindly copied the multiboot information structure into multiboot.h. Here we're going to use some fields of this structure, namely:
+
+::
+
+    uint32_t num;
+    ...
+    uint32_t addr;
+    uint32_t shndx;
+
+These give respectively the number of sections in the ELF file, the address of the start of an array of section header structures, and the index in that array of the special section ``.shstrtab``;
+
+Each section has a name, usually prefixed by a "." symbol. There are some well known section names:
+
+* ``.text`` : Code section
+* ``.data`` : Read-write data section
+* ``.rodata`` : Constant data section
+* ``.symtab`` : Symbol table
+* ``.strtab`` : Section mapping indices from the symbol table to strings (so strings can be reused and compressed).
+* ``.shstrtab`` : Like ``.strtab`` but holds the strings mapping indices from section header structs to names. This is needed to find the name of any section.
+
+To put this into a little more context, here is the structure for a section header in ELF:
+
+::
+
+    typedef struct
+    {
+      uint32_t name;
+      uint32_t type;
+      uint32_t flags;
+      uint32_t addr;
+      uint32_t offset;
+      uint32_t size;
+      uint32_t link;
+      uint32_t info;
+      uint32_t addralign;
+      uint32_t entsize;
+    } __attribute__((packed)) elf_section_header_t;
+
+The important fields for us at the moment are:
+
+name
+    An index into the section ``.shstrtab``, which will contain a NULL-terminated name for this section.
+
+addr
+    The address the section should be loaded at. GRUB does this for us.
+
+size
+    Size of the section, in bytes.
+
+Now you can see why the multiboot struct contains the section header index of ``.shstrtab``. Without it, we would never be able to find the names of any of the other sections!
+
+Putting some code together
+--------------------------
+
+elf.h
+~~~~~
+
+We've already seen the ELF section header struct; there is just one more structure to define - that of a symbol. A symbol has a name (index into ``.strtab``), address, size and some flags. There are also an ELF-standard defined macro: ELF32_ST_TYPE, which gets the type of a symbol (value 0x2 meaning 'function', which is what we're interested in) from the symbol's ``info`` member.
+
+::
+
+    #define ELF32_ST_TYPE(i) ((i)&0xf)
+
+    typedef struct
+    {
+      uint32_t name;
+      uint32_t value;
+      uint32_t size;
+      uint8_t  info;
+      uint8_t  other;
+      uint16_t shndx;
+    } __attribute__((packed)) elf_symbol_t;
+
+We're also going to define a structure to pack up all the information we take from the multiboot structure so it can be passed around easily, and some accessor functions:
+
+::
+
+    typedef struct
+    {
+      elf_symbol_t *symtab;
+      uint32_t      symtabsz;
+      const char   *strtab;
+      uint32_t      strtabsz;
+    } elf_t;
+
+    // Takes a multiboot structure and returns an elf structure containing the symbol information.
+    elf_t elf_from_multiboot (multiboot_t *mb);
+
+    // Looks up a symbol by address.
+    const char *elf_lookup_symbol (uint32_t addr, elf_t *elf);
+
+elf.c
+~~~~~
+
+Our ELF initialisation function looks something like this:
+
+.. literalinclude:: ../src/elf.c
+    :start-after: #if CHAPTER >= 6
+    :end-before: const char *elf_lookup_symbol
+
+Firstly we get a pointer to the array of section headers from the multiboot struct, then we get the address of the section header string table.
+
+Indexing through the array of section headers, we look for headers with names ``.strtab`` and ``.symtab`` for the string table and symbol table respectively, and fill in the ``elf_t`` object.
+
+Then, to look up the symbol at a given address, we just index through all symbols...::
+
+    const char *elf_lookup_symbol (uint32_t addr, elf_t *elf)
+    {
+      int i;
+
+      for (i = 0; i < (elf->symtabsz/sizeof (elf_symbol_t)); i++)
+      {
+
+looking only for a symbol of type 'function'::
+
+        if (ELF32_ST_TYPE(elf->symtab[i].info) != 0x2)
+          continue;
+
+With 'addr' between its start and end addresses::
+
+        if ( (addr >= elf->symtab[i].value) &&
+             (addr < (elf->symtab[i].value + elf->symtab[i].size)) )
+        {
+
+If we found one, we should return its name by indexing into the string table::
+
+          const char *name = (const char *) ((uint32_t)elf->strtab + elf->symtab[i].name);
+          return name;
+        }
+      }
+    }
+
+Done! We can now test this out by creating a "panic" function that reports an unrecoverable error with stacktrace.
+
+Panic!
+------
+
+.. literalinclude:: ../src/panic.h
+    :start-after: #if CHAPTER >= 6
+    :end-before: #endif // CHAPTER > =6
+
+.. literalinclude:: ../src/panic.c
+    :start-after: #if CHAPTER >= 6
+    :end-before: #endif // CHAPTER >= 6
+

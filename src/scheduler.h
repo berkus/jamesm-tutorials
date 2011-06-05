@@ -1,3 +1,4 @@
+#if CHAPTER >= 9
 //
 // scheduler.h -- Defines functions and structures for preempting threads.
 //                Written for JamesM's kernel development tutorials.
@@ -23,4 +24,5 @@ void thread_not_ready (thread_t *t);
 
 void schedule ();
 
+#endif
 #endif

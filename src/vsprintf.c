@@ -1,3 +1,4 @@
+#if CHAPTER >= 3
 /* vsprintf.c -- Lars Wirzenius & Linus Torvalds. */
 /*
  * Wirzenius wrote this portably, Torvalds fucked it up :-)
@@ -229,3 +230,4 @@ int vsprintf(char *buf, const char *fmt, va_list args)
 	*str = '\0';
 	return str-buf;
 }
+#endif // CHAPTER >= 3
