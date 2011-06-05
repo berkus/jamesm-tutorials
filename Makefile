@@ -16,6 +16,8 @@ CFLAGS=-nostdlib -fno-builtin -m32
 LDFLAGS=-melf_i386 -Tlink.ld
 ASFLAGS=-felf
 
+.PHONY : docs
+
 all: $(COBJECTS) $(SOBJECTS) link update
 
 bochs:

@@ -105,8 +105,13 @@ int main(multiboot_t *mboot_ptr)
   thread_is_ready(t);
 #endif
 
-#if CHAPTER >= 6
+#if CHAPTER == 5
+  asm volatile("sti");
+#endif
+#if CHAPTER == 6
   panic ("Testing panic mechanism");
+#endif
+#if CHAPTER >= 3
   for (;;);
 #endif
 
