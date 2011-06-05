@@ -1,8 +1,8 @@
 # Makefile for JamesM's kernel tutorials.
 
-CSOURCES=$(shell find -name *.c)
+CSOURCES=$(shell find -maxdepth 2 -name *.c)
 COBJECTS=$(patsubst %.c, %.o, $(CSOURCES))
-SSOURCES=$(shell find -name *.s)
+SSOURCES=$(shell find -maxdepth 2 -name *.s)
 SOBJECTS=$(patsubst %.s, %.o, $(SSOURCES))
 
 CC=gcc
@@ -15,6 +15,8 @@ endif
 CFLAGS=-nostdlib -fno-builtin -m32
 LDFLAGS=-melf_i386 -Tlink.ld
 ASFLAGS=-felf
+
+INSTALL_DIR=build/chapter_$(CHAPTER)
 
 .PHONY : docs
 
@@ -29,7 +31,7 @@ update:
 
 clean:
 	@echo Removing object files
-	@-rm $(COBJECTS) $(SOBJECTS) kernel
+	@-rm $(COBJECTS) $(SOBJECTS) kernel 2>/dev/null
 
 link:
 	@echo Linking
@@ -37,6 +39,22 @@ link:
 
 docs:
 	cd doc; make html
+
+full:
+	for c in 2 3 4 5 6 7; do echo "*** Chapter: $$c"; make clean; make CHAPTER=$$c; make install CHAPTER=$$c; done
+
+install:
+	@echo Installing chapter $(CHAPTER)
+	@-rm -r $(INSTALL_DIR)
+	@mkdir -p $(INSTALL_DIR)/src
+	@python scripts/install.py $(CHAPTER) src $(INSTALL_DIR)/src
+	@cp floppy.img kernel link.ld Makefile $(INSTALL_DIR)
+	@mkdir $(INSTALL_DIR)/scripts
+	@cp scripts/update_image.sh scripts/run_bochs.sh $(INSTALL_DIR)/scripts
+
+check-install:
+	@echo Building in $(INSTALL_DIR)
+	@cd $(INSTALL_DIR); make
 
 .s.o:
 	@echo Assembling $<
