@@ -20,6 +20,7 @@ Contents:
    backtracing_and_symbol_lookup
    physical_memory_management
    virtual_memory_management
+   the_heap
    multithreading
 
 Indices and tables

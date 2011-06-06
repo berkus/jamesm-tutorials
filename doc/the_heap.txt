@@ -1,0 +1,350 @@
+==========
+ The Heap
+==========
+
+In order to be responsive to situations that you didn't envisage at the design stage, and to cut down the size of your kernel, you will need some kind of dynamic memory allocation. The current memory allocation system (allocation by placement address) is absolutely fine, and is in fact optimal for both time and space for allocations. The problem occurs when you try to free some memory, and want to reclaim it (this must happen eventually, otherwise you will run out!). The placement mechanism has absolutely no way to do this, and is thus not viable for the majority of kernel allocations.
+
+As a sidepoint of general terminology, any data structure that provides both allocation and deallocation of contiguous memory can be referred to as a heap (or a pool). There is, as such, no standard 'heap algorithm' - Different algorithms are used depending on time/space/efficiency requirements. Our requirements are:
+
+* (Relatively) simple to implement.
+* Able to check consistency - debugging memory overwrites in a kernel is about ten times more difficult than in normal apps!
+
+The algorithm and data structures presented here are ones which I developed myself. They are so simple however, that I am sure others will have used it first.
+
+Data structure description
+==========================
+
+.. image:: heap_format.png
+
+The algorithm uses two concepts: *allocated blocks* and *holes*. Blocks are contiguous areas of memory containing user data currently in use (i.e. malloc()d but not free()d). Holes are unallocated blocks, so their contents are not in use. So initially by this concept the entire area of heap space is one large hole.
+
+We will keep every block and hole in a linked list, so in order to find free space we can just iterate over it and check the entries. Blocks and holes each contain a header filled with descriptive data. The header contains information about the length of a block, whether it is a hole or not and links to the next and previous items in the list. Pseudocode:
+
+::
+
+    typedef struct header
+    {
+      struct header *prev, *next;
+      uint32_t allocated : 1;
+      uint32_t length : 31;
+    } header_t;
+
+Note also that within this tutorial I will refer to the size of a block being the number of bytes from the start of the header to the end of the block - so within a block of size x, there will be x - sizeof(header_t) user-useable bytes.
+
+Algorithm description
+=====================
+
+Allocation
+~~~~~~~~~~
+
+Allocation is pretty straightforward:
+1. Search the list to find the first hole that fits our request.
+
+  * If we didn't find a hole large enough, then:
+  
+    1. Expand the heap.
+    2. If the list is empty (no recorded holes yet), add a new entry
+    3. Else, adjust the last header's size member
+
+
+2. Decide if the hole should be split into two parts. This will normally be the case - we usually will want much less space than is available in the hole. The only time this will not happen is if there is less free space after allocating the block than the header/footer takes up. In this case we can just increase the block size and reclaim it all afterwards.
+3. Adjust the new block's header to be allocated.
+4. If the hole was to be split into two parts, do it now.
+5. Return the address of the block + sizeof(header_t) to the user.
+
+Deallocation
+~~~~~~~~~~~~
+
+Deallocation (freeing) is a little more tricky. As mentioned earlier, this is where the efficiency of a memory-management algorithm is really tested. The problem is effective reclaimation of memory. The naive solution would be to change the given block to a hole and enter it back into the hole index. However, if I do this:
+
+::
+
+    int a = kmalloc(8); // Allocate 8 bytes: returns 0xC0080000 for sake of argument
+    int b = kmalloc(8); // Allocate another 8 bytes: returns 0xC0080008.
+    kfree(a);           // Release a
+    kfree(b);           // Release b
+    int c = kmalloc(16);// What will this allocation return?
+
+*Note that in this example the space required for headers and footers have been purposely omitted for readability*
+
+Here we have allocated space for 8 bytes, twice. We then release both of those allocations. With the naive release algorithm we would then end up with two 8-byte sized holes in the index. When the next allocation (for 16 bytes) comes along, neither of those holes can fit it, so the kmalloc() call will return 0xC0080010. This is suboptimal. There are 16 bytes of space free at 0xC0080000, so we *should* be reallocating that!
+
+.. image:: unifying.png
+
+The solution to this problem in most cases is a varation on a simple algorithm that I call unification - That is, converting two adjacent holes into one. (Please note that this coining of a term is not from a sense of self-importance, merely from the absence of a standardised name).
+
+It works thus: When free()ing a block, look at what is immediately to the left (assuming 0-4GB left-to-right) of the header. If it is a hole, we can modify it's header's size attribute to take into account both it's size and ours and delete ours from the list. We have thus amalgamated both holes into one (and in this case there is no need to do an expensive insert operation on the index).
+
+That is what I call *unifying left*. There is also *unifying right*, which should be performed on free() as well. Here we look at what is directly after our block. If we find a hole there, we can add size attribute to our soon to be hole. Then, all that needs to be done is to remove it's old entry from the hole index.
+
+Note also that in the name of reclaiming space, if we are free()ing the last block in the heap (there are no holes or blocks after us), then we can contract the size of the heap.
+
+Pseudocode
+^^^^^^^^^^
+
+1. Find the header by taking the given pointer and subtracting the sizeof(header_t).
+2. Set the allocated flag in our header to 0.
+3. If the thing immediately to our right is a hole:
+
+  * Unify right.
+  
+4. If the thing immediately to our left is a hole:
+
+  * Unify left.
+  
+5. If our hole is the last in the heap ( &header + header->size >= end_address ):
+
+  * Contract.
+  
+6. Insert the header into the linked list unless it isn't already in there.
+
+Initializing the heap
+=====================
+
+At first we have to give our heap a distinct start and end address. Therefore we define HEAP_START 0xD0000000 and HEAP_END 0xFFBFF000 in heap.h along with the header_t struct described earlier. Of course, we need some prototypes, too:
+
+::
+
+    void init_heap();
+    void *kmalloc(u32int_t l);
+    void kfree(void *p);
+
+In heap.c we have to create the first linked list object and create a variable which contains the current maximum size of our heap (initially its size is zero, so we use the start address).
+
+::
+
+    uint32_t heap_max = HEAP_START;
+    header_t *heap_first = 0;
+
+That is all we need to do to be able to allocate the first chunk of memory.
+
+Allocation and Deallocation
+===========================
+
+To allocate memory we just iterate over the list (which is initially empty) to find a hole big enough for our request:
+
+::
+
+    void *kmalloc (uint32_t l)
+    {
+      l += sizeof (header_t);
+    
+      header_t *cur_header = heap_first, *prev_header = 0;
+      while (cur_header)
+      {
+        if (cur_header->allocated == 0 && cur_header->length >= l)
+        {
+          split_chunk (cur_header, l);
+          
+split_chunk will cut the block in two pieces, one with the required size, so we don't waste a hole block to allocate a small amount of memory.
+
+::
+
+          cur_header->allocated = 1;
+          return (void*) ((uint32_t)cur_header + sizeof (header_t));
+
+If we find a hole big enough, we set it to allocated and return its address (behind the header).
+
+::
+
+        }
+        prev_header = cur_header;
+        cur_header = cur_header->next;
+      }
+
+If not, we look for the next one. In some cases we won't find a hole big enough, e. g. when allocating the first time or if our request is bigger than any hole generated yet. Then we have to expand the heap to the size needed and allocate the newly created block:
+
+::
+
+      uint32_t chunk_start;
+      if (prev_header)
+        chunk_start = (uint32_t)prev_header + prev_header->length;
+        
+In this case, there are entries in the list, but none was big enough.
+
+::
+
+      else
+      {
+        chunk_start = HEAP_START;
+        heap_first = (header_t *)chunk_start;
+      }
+
+There are no entries in the list yet, so we create one.
+
+::
+
+      alloc_chunk (chunk_start, l);
+      
+This function allocates a new block by expanding the heap. We will implement it later.
+
+::
+
+      cur_header = (header_t *)chunk_start;
+      cur_header->prev = prev_header;
+      cur_header->next = 0;
+      cur_header->allocated = 1;
+      cur_header->length = l;
+    
+      prev_header->next = cur_header;
+      
+Fill the new block's header with the required information and insert it into our list.
+
+::
+
+      return (void*) (chunk_start + sizeof (header_t));
+    }
+
+And return its address (behind the header);
+
+To free memory, we just need to change the blocks status to unallocated and unify it to the right and to the left:
+
+::
+
+    void kfree (void *p)
+    {
+      header_t *header = (header_t*)((uint32_t)p - sizeof(header_t));
+      
+As you know, the pointer to our memory always points to the space behind the header, so to get the header we just subtract its size from the pointer.
+
+::
+
+      header->allocated = 0;
+      
+Set it to unallocated and
+
+::
+
+      glue_chunk (header);
+    }
+
+unify it in both directions.
+
+
+The tricky part
+~~~~~~~~~~~~~~~
+
+Sooner or later we will have to expand the heap. Probably sooner as its initial size is 0. To do so, we now implement the aforementioned alloc_chunk() function:
+
+::
+
+    void alloc_chunk (uint32_t start, uint32_t len)
+    {
+      while (start + len > heap_max)
+      {
+      
+As long as the heap is to small,
+
+::
+
+        uint32_t page = pmm_alloc_page ();
+        map (heap_max, page, PAGE_PRESENT | PAGE_WRITE);
+        
+Allocate a page and map it to its end.
+
+::
+
+        heap_max += 0x1000;
+      }
+    }
+
+Then increase the heap's size variable one page. All in all this process is very simple.
+
+Splitting a chunk is pretty straightforward as well. We check if the new chunk is big enough to at least hold the header and one byte. Blocks with 0 byte capacity would be useless. If the new block has the required capacity, we adjust the size of the old block and add the new block into our linked list.
+
+::
+
+    void split_chunk (header_t *chunk, uint32_t len)
+    {
+      if (chunk->length - len > sizeof (header_t))
+      {
+      
+The required length test...
+
+::
+
+        header_t *newchunk = (header_t *) ((uint32_t)chunk + chunk->length);
+        newchunk->prev = chunk;
+        newchunk->next = 0;
+        newchunk->allocated = 0;
+        newchunk->length = chunk->length - len;
+        
+Create and fill the new blocks header.
+
+::
+    
+        chunk->next = newchunk;
+        chunk->length = len;
+      }
+    }
+
+And adjust the old one to point to the new block.
+
+The unifying left and right can be done by a single function. As I explained already, we check both sides to figure out if there is anything to unify and if necessary, do so:
+
+::
+
+    void glue_chunk (header_t *chunk)
+    {
+      if (chunk->next && chunk->next->allocated == 0)
+      {
+        chunk->length = chunk->length + chunk->next->length;
+        chunk->next->next->prev = chunk;
+        chunk->next = chunk->next->next;
+      }
+      
+*Unify right...*
+
+::
+    
+      if (chunk->prev && chunk->prev->allocated == 0)
+      {
+        chunk->prev->length = chunk->prev->length + chunk->length;
+        chunk->prev->next = chunk->next;
+        chunk->next->prev = chunk->prev;
+        chunk = chunk->prev;
+      }
+      
+*Unify left*
+
+::
+    
+      if (chunk->next == 0)
+        free_chunk (chunk);
+    }
+
+and if there is nothing to our right after the process (we just have a big hole at the end of our heap), we free it. Try to figure out why we unify to the right first and what you would have to change, to unify to the left.
+
+The last functionality I owe you is the contracting of the heap:
+
+::
+
+    void free_chunk (header_t *chunk)
+    {
+      chunk->prev->next = 0;
+    
+      if (chunk->prev == 0)
+      heap_first = 0;
+      
+Adjust the block to the left, to have no right block any more. If it is the first block, set the heap to null.
+
+::
+
+      while ( (heap_max-0x1000) >= (uint32_t)chunk )
+      {
+        heap_max -= 0x1000;
+        
+Contract the size by one page, until the block is completely removed (in case it is bigger than one page)
+
+::
+
+        uint32_t page;
+        get_mapping (heap_max, &page);
+        pmm_free_page (page);
+        unmap (heap_max);
+      }
+    }
+
+and unmap the corresponding page.
+
+Congratulations, you now have a working heap management for your kernel heap.
