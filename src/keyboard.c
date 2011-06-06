@@ -1,3 +1,4 @@
+#if CHAPTER >= 11
 //
 // keyboard.c -- Defines the functions related to the keyboard driver.
 //          Written for JamesM's kernel development tutorials.
@@ -100,16 +101,35 @@ keymap_t us = {
 //Here begins the functionality
 keymap_t *current_layout;
 
+// Indices into the circular buffer for the keyboard data.
+uint32_t keyboard_buffer_start, keyboard_buffer_end;
+// Circular buffer giving content captured from keyboard.
+char keyboard_buffer[256];
+
 void init_keyboard_driver() {
   register_interrupt_handler(IRQ1, &keyboard_handler);
   switch_layout(&us);
+
+  keyboard_buffer_start = 0;
+  keyboard_buffer_end = 0;
+}
+
+char keyboard_getchar() {
+    if (keyboard_buffer_start != keyboard_buffer_end)
+    {
+        char c = keyboard_buffer[keyboard_buffer_start++];
+        // Wrap to the start of the buffer if we went off the end.
+        keyboard_buffer_start &= 255;
+        return c;
+    }
+    else return '\0';
 }
 
 void switch_layout(keymap_t *layout) {
   current_layout = layout;
 }
 
-interrupt_handler_t keyboard_handler(registers_t regs) {
+void keyboard_handler(registers_t *regs) {
   
   uint8_t scancode = inb(0x60);
   
@@ -148,15 +168,17 @@ interrupt_handler_t keyboard_handler(registers_t regs) {
       }
     }
 
+    uint8_t *scancodes = current_layout->scancodes;
     //if it was a non-control key, just print it upper or lowercase version
     //depending on the status of the control keys
     if((current_layout->controls & 0x38) && !(current_layout->controls & 0x1))
-    {
-      monitor_put(current_layout->shift_scancodes[scancode]);
-    }
-    else
-    {
-      monitor_put(current_layout->scancodes[scancode]);
+        scancodes = current_layout->shift_scancodes;
+
+    // Avoid buffer overruns if possible.
+    if (keyboard_buffer_end != keyboard_buffer_start-1) {
+        keyboard_buffer[keyboard_buffer_end++] = scancodes[scancode];
+        keyboard_buffer_end &= 255;
     }
   }
 }
+#endif

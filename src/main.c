@@ -24,9 +24,11 @@
 #if CHAPTER >= 8
 #include "heap.h"
 #endif
-
 #if CHAPTER >= 9
 #include "thread.h"
+#endif
+#if CHAPTER >= 11
+#include "keyboard.h"
 #endif
 
 #if CHAPTER >= 6
@@ -100,6 +102,8 @@ int main(multiboot_t *mboot_ptr)
   asm volatile ("sti");
 
   init_scheduler (init_threading ());
+#endif
+#if CHAPTER == 9
   uint32_t *stack = kmalloc (0x100) + 0xF0;
   thread_t *t = create_thread(&fn, (void*)0x567, stack);
   thread_is_ready(t);
@@ -110,6 +114,17 @@ int main(multiboot_t *mboot_ptr)
 #endif
 #if CHAPTER == 6
   panic ("Testing panic mechanism");
+#endif
+#if CHAPTER >= 11
+  init_keyboard_driver();
+#if CHAPTER == 11
+  for(;;)
+  {
+      char c = keyboard_getchar();
+      if (c)
+          monitor_put(c);
+  }       
+#endif
 #endif
 #if CHAPTER >= 3
   for (;;);

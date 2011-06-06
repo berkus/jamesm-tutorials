@@ -1,3 +1,4 @@
+#if CHAPTER >= 11
 //
 // keyboard.h - Defines the interface for the keyboard driver.
 //         Also defines needed structures.
@@ -39,6 +40,11 @@ typedef struct keymap {
 
 void init_keyboard_driver();
 void switch_layout(keymap_t *layout);
-interrupt_handler_t keyboard_handler(registers_t regs);
+void keyboard_handler(registers_t *regs);
+
+// Returns a character from the keyboard; does not block.
+// Returns '\0' if no character is available.
+char keyboard_getchar();
 
 #endif
+#endif // CHAPTER >= 11
