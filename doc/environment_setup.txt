@@ -11,7 +11,7 @@ Compiling
 
 All examples in this tutorial should compile with the GNU toolchain (gcc, ld) with the exception of the assembly examples which are written in Intel syntax. These require the `Netwide Assembler`_.
 
-This tutorial is *not* a bootloader tutorial. We will be using GRUB_ - the grand unified bootloader - to load our kernel. To do this, we need a floppy disk image with GRUB preloaded onto it. There are :ref:`tutorials <http://wiki.osdev.org/Loopback_Device>` out there to do this, but I have made a standard image which can be found :download:`here <../floppy.img>`. This is a 1.44MB floppy disk image formatted with the ext2 filesystem with GRUB installed.
+This tutorial is *not* a bootloader tutorial. We will be using GRUB_ - the grand unified bootloader - to load our kernel. To do this, we need a floppy disk image with GRUB preloaded onto it. There are `tutorials`_ out there to do this, but I have made a standard image which can be found :download:`here <../floppy.img>`. This is a 1.44MB floppy disk image formatted with the ext2 filesystem with GRUB installed.
 
 Running
 =======
@@ -128,3 +128,4 @@ This is a small wrapper script around bochs' command line;
 .. _Bochs: http://bochs.sourceforge.net
 .. _`GCC cross compiler`: http://wiki.osdev.org/GCC_Cross-Compiler
 .. _QEmu: http://www.qemu.org
+.. _tutorials: http://wiki.osdev.org/Loopback_Device

@@ -20,7 +20,7 @@ As can probably be gleaned from my biased descriptions, interrupting is
 considered better for many situations. Polling has lots of uses - some CPUs may not have an
 interrupt mechanism, or you may have many devices, or maybe you just
 need to check so infrequently that it's not worth the hassle of
-interrupts. Any rate, interrupts are a very useful method of hardware
+interrupts. At any rate, interrupts are a very useful method of hardware
 communication. They are used by the keyboard when keys are pressed,
 and also by the programmable interval timer (PIT).
 
@@ -48,7 +48,7 @@ computer boots, the default interrupt mappings are:
 
 This causes us somewhat of a problem. The master's IRQ mappings
 (0x8-0xF) conflict with the interrupt numbers used by the CPU to
-signal exceptions and faults (see last :doc:`chapter <the_gdt_and_idt>`). The normal
+signal exceptions and faults (see :doc:`last chapter <the_gdt_and_idt>`). The normal
 thing to do is to remap the PICs so that IRQs 0..15 correspond to ISRs
 32..47 (31 being the last CPU-used ISR).
 
@@ -57,13 +57,16 @@ Interrupt requests (practical)
 
 The PICs are communicated with via the I/O bus. Each has a command
 port and a data port:
-* Master - command: 0x20, data: 0x21
-* Slave - command: 0xA0, data: 0xA1
+
+    * Master - command: 0x20, data: 0x21
+    * Slave - command: 0xA0, data: 0xA1
+
 The code for remapping the PICs is the most difficult and
 obfusticated. To remap them, you have to do a full reinitialisation of
 them, which is why the code is so long. If you're interested in what's
-actually happening, there is a nice description
-`here <PIC>`_ .::
+actually happening, there is a nice description `here`_.
+
+::
 
  void init_idt()
  {
@@ -329,4 +332,5 @@ at the correct speed on a real machine, it probably won't in bochs!
 Full source code for this tutorial can be found
 :download:`here <../tarballs/irqs_and_the_pit.tar.gz>`.
 
-.. _PIC: http://wiki.osdev.org/PIC
+.. _here: http://wiki.osdev.org/PIC
+
