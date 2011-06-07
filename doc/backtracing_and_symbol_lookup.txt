@@ -26,7 +26,7 @@ What is a frame pointer? Simple. When a function begins (in the "prologue"), the
    |                               |
    +-------------------------------+   <--- ESP
 
-The compiler can either emit code to reference variables in the stack frame either relative to the stack pointer (ESP+X), but that could change (for example if stack-based `alloca` is used), so alternatively it could save the address of the *top* of the stack frame into a frame pointer register or *base register* (EBP-Y):
+The compiler can emit code to reference variables in the stack frame either relative to the stack pointer (ESP+X), but that could change (for example if stack-based `alloca` is used), so alternatively it could save the address of the *top* of the stack frame into a frame pointer register or *base register* (EBP-Y):
 
 .. code-block:: text
 
@@ -86,7 +86,7 @@ You can see that the code is relying on ebp becoming zero at the end of the stac
 
     mov ebp, 0
 
-With this function you will get a backtrace, but only of addresses. It'd be more useful if you could get the function names instead of just their addresses?
+With this function you will get a backtrace, but only of addresses. It'd be more useful if you could get the function names instead of just their addresses.
 
 ELF and symbol lookup
 =====================
@@ -96,14 +96,14 @@ The kernel you are booting is in ELF format. This is the UNIX standard format fo
 To this end, the information in an ELF file is duplicated:
 
 * *Sections* Are valid when an object is still to be linked (\*.o), and may still be valid when the final image is produced (\*.so or executable), or may be stripped out at this point. They provide quite fine-grained information about different pieces of code and data. They also contain a symbol table section, which maps symbol names to addresses.
-* *Segments* Are valid after the object has been finally linked, and coalesce like sections, rejecting data not useful at runtime.
+* *Segments* Are valid after the object has been finally linked, and coalesce similar sections, rejecting data not useful at runtime.
 
 As long as you haven't run "strip" on your kernel, it will have a symbol table, and GRUB will actually have loaded it in for you if you know where to look.
 
 Multiboot.h, a slight reprise
 -----------------------------
 
-In the second chapter (:ref:`genesis`) you blindly copied the multiboot information structure into multiboot.h. Here we're going to use some fields of this structure, namely:
+In the second chapter (:doc:`genesis`) you blindly copied the multiboot information structure into multiboot.h. Here we're going to use some fields of this structure, namely:
 
 ::
 
@@ -160,7 +160,7 @@ Putting some code together
 elf.h
 ~~~~~
 
-We've already seen the ELF section header struct; there is just one more structure to define - that of a symbol. A symbol has a name (index into ``.strtab``), address, size and some flags. There are also an ELF-standard defined macro: ELF32_ST_TYPE, which gets the type of a symbol (value 0x2 meaning 'function', which is what we're interested in) from the symbol's ``info`` member.
+We've already seen the ELF section header struct; there is just one more structure to define - that of a symbol. A symbol has a name (index into ``.strtab``), address, size and some flags. There is also an ELF-standard defined macro: ELF32_ST_TYPE, which gets the type of a symbol (value 0x2 meaning 'function', which is what we're interested in) from the symbol's ``info`` member.
 
 ::
 
