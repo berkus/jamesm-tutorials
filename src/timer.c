@@ -16,9 +16,9 @@ uint32_t tick = 0;
 static void timer_callback (registers_t *regs)
 {
   tick++;
-#if CHAPTER >= 10
+#if CHAPTER >= 9
   schedule ();
-#endif // CHAPTER >= 10
+#endif // CHAPTER >= 9
 #if CHAPTER == 5
   monitor_write("Tick: ");
   monitor_write_dec(tick);

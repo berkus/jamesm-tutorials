@@ -5,7 +5,9 @@
 ;;;
 
         [global switch_thread]
+        [global _create_thread]
         [extern current_thread]
+        [extern thread_exit]
         
 switch_thread:
         mov eax, [current_thread]
@@ -25,6 +27,29 @@ switch_thread:
         mov ebx, [eax+8]
         mov esi, [eax+12]
         mov edi, [eax+16]
-jmp $        
+
         ret
+
+_create_thread:
+        mov eax, [esp+4]        ; fn
+        mov ecx, [esp+8]        ; arg
+        mov edx, [esp+12]       ; stack
+        mov edi, [esp+16]       ; thread
+
+        mov ebx, [current_thread]
+        mov [ebx+0],  esp
+        mov [ebx+4],  ebp
+        mov [ebx+8],  ebx
+        mov [ebx+12], esi
+        mov [ebx+16], edi
+
+        mov [current_thread], edi
+
+        mov esp, edx
+        push ecx
+        push thread_exit
+
+        sti
+        jmp eax
+        
  %endif ; CHAPTER >= 9

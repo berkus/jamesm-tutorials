@@ -100,13 +100,12 @@ int main(multiboot_t *mboot_ptr)
 #endif
 #if CHAPTER >= 9
   asm volatile ("sti");
-
   init_scheduler (init_threading ());
 #endif
 #if CHAPTER == 9
-  uint32_t *stack = kmalloc (0x100) + 0xF0;
+  uint32_t *stack = kmalloc (0x400) + 0x3F0;
+
   thread_t *t = create_thread(&fn, (void*)0x567, stack);
-  thread_is_ready(t);
 #endif
 
 #if CHAPTER == 5

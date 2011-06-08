@@ -2,33 +2,162 @@
  Physical memory management
 ===========================
 
-When the kernel is sufficiently booted, we will have a kernel heap active and operational. The way we code heaps, though, usually requires that virtual memory is enabled. So we need a simple alternative to allocate memory before the heap is active.
+Memory management is the most important part of a young kernel. Separating the two concepts of physical and virtual memory management is crucial to creating a decent kernel (something that the previous generation of this tutorial was poor at).
 
-If we want to allocate memory dynamically, we have to keep track of what is already allocated and what is still available. Later on we will use virtual memory to handle this for us, but to achieve that we need a different strategy.
+But first, what are physical and virtual memory?
 
-If you come from a C++ background, you may have heard of 'placement new'. This is a version of new that takes a parameter. Instead of calling malloc, as it normally would, it creates the object at the address specified. We are going to use a very similar concept.
+Virtual memory (theory)
+=======================
 
-As we're allocating quite early on in the kernel bootup, we can make the assumption that nothing that is allocated will ever need to be freed. This simplifies things greatly. We can just create a stack in some free memory and save our dynamic data structures in it.
+.. note:: If you already know what virtual memory is, you can skip this section.
 
-So we need to know where to start. Thankfully our bootloader grub stores the first address of the lower and upper memory in the multiboot structure passed to our main function. We just put our stack there. Thats all information we need to initialize our physical memory management:
+In linux, if you create a tiny test program such as
 
 ::
+
+    int main(char argc, char **argv)
+    {
+      return 0;
+    }
+
+, compile it, then run 'objdump -f', you might find something similar to this.
+
+::
+
+    $ objdump -f a.out
+    
+    a.out:     file format elf32-i386
+    architecture: i386, flags 0x00000112:
+    EXEC_P, HAS_SYMS, D_PAGED
+    start address 0x080482a0
+
+Notice the start address of the program is at 0x80482a0, which is about 128MB into the address space. It may seem strange, then, that this program will run perfectly on machines with < 128MB of RAM.
+
+What the program is actually 'seeing', when it reads and writes memory, is a virtual address space. Parts of the virtual address space are mapped to physical memory, and parts are unmapped. If you try to access an unmapped part, the processor raises a *page fault*. The operating system catches it, and in POSIX systems delivers a SIGSEGV signal closely followed by SIGKILL.
+
+This abstraction is extremely useful. It means that compilers can produce a program that relies on the code being at an exact location in memory, every time it is run. With virtual memory, the process thinks it is at, for example, 0x080482a0, but actually it could be at physical memory location 0x1000000. Not only that, but processes cannot accidentally (or deliberately) trample other processes' data or code.
+
+Memory management is a symbiotic relationship between two managers;
+
+* The *physical memory manager* (PMM), which knows which areas of memory are free to use and which are allocated.
+* The *virtual memory manager* (VMM), which manages the mappings between virtual and physical addresses.
+
+The PMM could quite possibly need to use the VMM, because keeping a list of all possible areas of memory that are empty may require a lot of memory itself; impossible in general to set aside statically at compilation time because the size is unknown (depends on amount of available RAM).
+
+The VMM relies on the PMM because it has structures that need to reside in physical memory to point the CPU at (see :doc:`next chapter <virtual_memory_management>`).
+
+It should be noted that when managing memory, we tend to chunk it up into "pages" (the reason will become apparent in :doc:`the next chapter <virtual_memory_management>`). These are usually (but not always) 4KB in size. A physical memory manager usually operates in terms of pages.
+
+The intended API
+================
+
+As the PMM and VMM are going to work so closely together, it makes sense to define their interfaces up-front. The PMM will have these accessors (excluding its initialisation function)::
+
+    // Returns the address of a page of physical memory.
+    uint32_t pmm_alloc_page ();
+
+    // Informs that the given page address as no longer used.
+    void pmm_free_page (uint32_t p);
+    
+    // The VMM should set this to 1 when it is fully booted.
+    extern char pmm_paging_active;
+
+And the VMM will have the following (if any of these don't make sense, wait until the end of the next chapter!)::
+
+    #define PAGE_PRESENT   0x1        // Page is mapped in.
+    #define PAGE_WRITE     0x2        // Page is writable. Not set means read-only.
+    #define PAGE_USER      0x4        // Page is writable from user space. Unset means kernel-only.
+    #define PAGE_MASK      0xFFFFF000 // Mask constant to page-align an address.
+
+    // Switches address space.
+    void switch_page_directory (page_directory_t *pd);
+    
+    // Maps the physical page "pa" into the virtual address space at address "va", using
+    // the given protection flags, which are a logical-OR of the PAGE* constants.
+    void map (uint32_t va, uint32_t pa, uint32_t flags);
+    
+    // Removes one page of V->P mappings at virtual address "va"
+    void unmap (uint32_t va);
+   
+    // Returns 1 if the given virtual address is mapped in the address space.
+    // If "pa" is non-NULL, the physical address of the mapping is placed in *pa.
+    char get_mapping (uint32_t va, uint32_t *pa);
+
+As the physical memory manager, we will only require one function in the VMM: ``map``. We'll use this later.
+    
+
+An initial PMM
+==============
+
+Importantly because of the symbiotic nature of physical and virtual memory managers, there must be a way of allocating physical memory before the VMM is fully booted. This can be simply achieved by maintaining a simple integer and incrementing it by the page size (4KB, 0x1000, 4096) whenever a page is requested.
+
+Assuming we are told where we can start the allocation::
 
     void init_pmm (uint32_t start)
     {
       pmm_location = (start + 0x1000) & PAGE_MASK;
     }
     
-We want every page aligned. If they aren't, the system won't accept our page directories or tables (will be explained in the next chapter). So we add 0x1000 (the page size) to the stack address and null the last three bits.
+.. note:: It is important to have every page aligned to a natural boundary, so we add 0x1000 (the page size) to the given start address and null the last three bits.
 
 To allocate pages we just return the current address and add 0x1000 to it. That way the next address is exactly the beginning of the next page to allocate.
 
 ::
     
     uint32_t pmm_alloc_page ()
+    {      
+        return pmm_location += 0x1000;
+    }
+    
+At some point we might want to free some memory. Alas, there's not really any way to do that with our current scheme; that'll have to wait until we can get a more clever allocation scheme active (which will rely on the VMM being booted!)
+
+::
+
+    void pmm_free_page (uint32_t p)
+    {
+    }
+
+A 'real' stack-based memory manager
+===================================
+
+The previous scheme will get us to the point where we can serve pages to consumers (namely the VMM). Once it is active however, we should be a little more clever in our allocation scheme so we can actually free pages!
+
+There are two widely used styles of physical memory allocators - stack-based and bitmap-based.
+
+Bitmap-based allocators create a large bitfield with each bit representing if a page is allocated or free. Stack-based allocators maintain a stack of page addresses, pushing an address when freed and popping to allocate.
+
+We're going to implement a stack-based allocator because it is slightly simpler.
+
+pmm.h
+-----
+
+We'll have to define where we want our stack to be in memory. As by this point we will have full control over the address space, it can be anywhere. Let's put it near the top of memory.
+
+::
+
+    #define PMM_STACK_ADDR 0xFF000000
+
+pmm.c
+-----
+
+We need some more variables::
+
+    uint32_t pmm_stack_loc = PMM_STACK_ADDR;
+    uint32_t pmm_stack_max = PMM_STACK_ADDR;
+
+``pmm_stack_loc`` will denote our current position in the stack (stack pointer), and ``pmm_stack_max`` will be the lowest we can go in the stack before we need to allocate more memory for it.
+
+We'll have to modify our allocation function to be conditional on whether the VMM is booted or not. If it's not, we should use our previous 'dumb' scheme.
+
+::
+
+    uint32_t pmm_alloc_page ()
     {
       if (pmm_paging_active)
       {
+
+And here's the allocation code::
+
         // Quick sanity check.
         if (pmm_stack_loc == PMM_STACK_ADDR)
           panic ("Error:out of memory.");
@@ -36,29 +165,25 @@ To allocate pages we just return the current address and add 0x1000 to it. That 
         // Pop off the stack.
         pmm_stack_loc -= sizeof (uint32_t);
         uint32_t *stack = (uint32_t*)pmm_stack_loc;
-  
+
         return *stack;
+
+Firstly we perform a sanity check to ensure we're not going to underrun the stack. Then we decrement our stack pointer to move it up the stack one place (size of a pointer), then return the value at that address. A simple stack ``pop`` operation.::
+
       }
-      
-If paging is already enabled, we might as well use our virtual memory. Our stack will be projected into virtual memory space, but for now, we just allocate a page on our physically addressed stack.
-
-::
-
       else
       {
         return pmm_location += 0x1000;
       }
     }
-    
-At some point we might want to free some memory. So we need this functionality as well:
 
-::
+When freeing a page, we perform the opposite ``push`` operation::
 
     void pmm_free_page (uint32_t p)
     {
       if (p < pmm_location) return;
 
-We have to ignore everything before our pmm_location because as mentioned before, we don't want to delete our early allocated pages.
+We have to ignore everything before our pmm_location because, we don't want to delete our early allocated pages - they may contain important virtual memory structures.
 
 ::
 
@@ -67,8 +192,8 @@ We have to ignore everything before our pmm_location because as mentioned before
         map (pmm_stack_max, p, PAGE_PRESENT | PAGE_WRITE);
         pmm_stack_max += 4096;
       }
-      
-We don't want our free page stack to run out some time, so we just map the currently freed page at the top of the stack. The map function will be implemented later so for testing purposes you might want to comment it out for now.
+
+Here we check if the stack has run out of space. If it has, we take the page that we were going to push onto the stack and instead map it into the address space for extra stack space. We obviously map it as writable!
 
 ::
 
@@ -81,4 +206,6 @@ We don't want our free page stack to run out some time, so we just map the curre
       }
     }
 
-If we don't have space issues, we just push our free page onto the free page stack. Now we have all we need to realize virtual memory management.
+If we don't have space issues, we just push our free page onto the free page stack. Now we have all we need to implement the partner virtual memory manager.
+
+Unlike almost all the other tutorials, this doesn't end with a code sample or example - our PMM is reliant on its companion VMM to work, and we have yet to write it!
