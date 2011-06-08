@@ -23,12 +23,12 @@ void spinlock_lock (spinlock_t *lock);
 
 void spinlock_unlock (spinlock_t *lock);
 
-uint32_t spinlock_trylock (spinlock_t *lock);
+// uint32_t spinlock_trylock (spinlock_t *lock);
 
-void semaphore_init (semaphore_t *sem, uint32_t value);
+/*void semaphore_init (semaphore_t *sem, uint32_t value);
 
 void semaphore_destroy (semaphore_t *sem);
 
 void semaphore_p (semaphore_t *sem);
 
-void semaphore_v (semaphore_t *sem);
+void semaphore_v (semaphore_t *sem);*/
