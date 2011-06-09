@@ -38,7 +38,9 @@ elf_t kernel_elf;
 #if CHAPTER >= 9
 int fn(void *arg)
 {
-  printk ("%x\n", arg);
+  for(;;) {
+      printk("a");
+  }
   return 6;
 }
 #endif
@@ -106,6 +108,10 @@ int main(multiboot_t *mboot_ptr)
   uint32_t *stack = kmalloc (0x400) + 0x3F0;
 
   thread_t *t = create_thread(&fn, (void*)0x567, stack);
+  for(;;) {
+      printk("b");
+  }
+
 #endif
 
 #if CHAPTER == 5

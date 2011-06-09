@@ -77,11 +77,12 @@ void schedule ()
 
   // Add the old thread to the end of the queue, and remove it from the start.
   iterator->next = current_thread;
-  current_thread = ready_queue;
+  current_thread->next = 0;
+  thread_list_t *new_thread = ready_queue;
 
   ready_queue = ready_queue->next;
 
   // Switch to the new thread.
-  switch_thread (current_thread->thread);
+  switch_thread (new_thread);
 }
 #endif // CHAPTER >= 9

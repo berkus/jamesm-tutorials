@@ -29,9 +29,14 @@ thread_t *create_thread (int (*fn)(void*), void *arg, uint32_t *stack)
   memset (thread, 0, sizeof (thread_t));
   thread->id = next_tid++;
   
-  asm volatile("cli");
-  thread_is_ready(current_thread);
-  _create_thread(fn, arg, stack, thread);
+  *--stack = (uint32_t)arg;
+  *--stack = (uint32_t)&thread_exit;
+  *--stack = (uint32_t)fn;
+
+  thread->esp = (uint32_t)stack;
+  thread->ebp = 0;
+  thread->eflags = 0x200; // Interrupts enabled.
+  thread_is_ready(thread);
 
   return thread;
 }
