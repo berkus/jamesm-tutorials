@@ -27,6 +27,9 @@
 #if CHAPTER >= 9
 #include "thread.h"
 #endif
+#if CHAPTER >= 10
+#include "lock.h"
+#endif
 #if CHAPTER >= 11
 #include "keyboard.h"
 #endif
@@ -35,11 +38,27 @@
 elf_t kernel_elf;
 #endif
 
-#if CHAPTER >= 9
+#if CHAPTER == 9
 int fn(void *arg)
 {
   for(;;) {
+    printk("a");
+	}
+  return 6;
+}
+#endif
+
+#if CHAPTER >= 10
+spinlock_t lock = SPINLOCK_UNLOCKED;
+
+int fn(void *arg)
+{
+  for(;;) {
+		int i;
+		spinlock_lock(&lock);
+		for(i = 0; i < 80; i++)
       printk("a");
+		spinlock_unlock(&lock);
   }
   return 6;
 }
@@ -109,7 +128,21 @@ int main(multiboot_t *mboot_ptr)
 
   thread_t *t = create_thread(&fn, (void*)0x567, stack);
   for(;;) {
-      printk("b");
+		printk("b");
+	}
+
+#endif
+
+#if CHAPTER == 10
+  uint32_t *stack = kmalloc (0x400) + 0x3F0;
+
+  thread_t *t = create_thread(&fn, (void*)0x567, stack);
+  for(;;) {
+		int i;
+		spinlock_lock(&lock);
+		for(i = 0; i < 80; i++)
+			printk("b");
+		spinlock_unlock(&lock);
   }
 
 #endif

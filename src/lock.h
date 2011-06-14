@@ -1,7 +1,10 @@
+#if CHAPTER >= 10
 //
 // lock.h -- Declares functions and structures for the locking mechanism.
 //           Written for JamesM's kernel development tutorials.
 //
+#ifndef LOCK_H
+#define LOCK_H
 
 #include "common.h"
 #include "thread.h"
@@ -10,7 +13,7 @@
 #define SPINLOCK_LOCKED 0
 #define SPINLOCK_UNLOCKED 1
 
-typedef uint32_t spinlock_t;
+typedef volatile uint32_t spinlock_t;
 
 typedef struct semaphore
 {
@@ -32,3 +35,6 @@ void semaphore_destroy (semaphore_t *sem);
 void semaphore_p (semaphore_t *sem);
 
 void semaphore_v (semaphore_t *sem);*/
+
+#endif
+#endif

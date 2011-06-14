@@ -1,3 +1,4 @@
+#if CHAPTER >= 10
 //
 // lock.c -- Defines functions and structures for the locking mechanism.
 //           Written for JamesM's kernel development tutorials.
@@ -7,17 +8,24 @@
 #include "common.h"
 #include "thread.h"
 #include "monitor.h"
+#include "scheduler.h"
 
 extern thread_t *current_thread;
 
-static uint32_t atomic_test_and_set (spinlock_t *lock, uint32_t value) {
-  asm volatile("xchgl %0, %1" : "=r" (value) : "m" (*(volatile spinlock_t *) lock), "0" (value) : "memory");
+static uint32_t atomic_test_and_set (volatile spinlock_t *lock) {
+	register spinlock_t value = SPINLOCK_UNLOCKED;
+	
+	asm volatile("lock					\
+								xchgl	%0, %1"
+								: "=q" (value), "=m" (*lock)
+								: "0" (value));
+	
   return value;
 }
 
 void spinlock_lock (spinlock_t *lock)
 {
-  while (atomic_test_and_set (lock, SPINLOCK_LOCKED) == SPINLOCK_LOCKED);
+  while (atomic_test_and_set (lock) == SPINLOCK_LOCKED);
   /*{
     sleep();
   }*/
@@ -25,7 +33,7 @@ void spinlock_lock (spinlock_t *lock)
 
 void spinlock_unlock (spinlock_t *lock)
 {
-  atomic_test_and_set (lock, SPINLOCK_UNLOCKED);
+  *lock = 0;
 }
 
 // uint32_t spinlock_trylock (spinlock_t *lock)
@@ -91,3 +99,5 @@ void spinlock_unlock (spinlock_t *lock)
 //   
 //   spinlock_unlock (&sem->lock);
 // }
+
+#endif
