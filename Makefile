@@ -1,5 +1,7 @@
 # Makefile for JamesM's kernel tutorials.
 
+CHAPTERS=2 3 4 5 6 7
+
 CSOURCES=$(shell find -maxdepth 2 -name *.c)
 COBJECTS=$(patsubst %.c, %.o, $(CSOURCES))
 SSOURCES=$(shell find -maxdepth 2 -name *.s)
@@ -20,7 +22,19 @@ INSTALL_DIR=build/chapter_$(CHAPTER)
 
 .PHONY : docs
 
-all: $(COBJECTS) $(SOBJECTS) link update
+all: 
+	@echo Making all
+	@if [ $$CHAPTER ]; then             \
+	    make chapter CHAPTER=$$CHAPTER; \
+	else                                \
+	    for c in $(CHAPTERS);           \
+	    do                              \
+	        echo "*** Chapter: $$c";    \
+	        make clean;                 \
+	        make chapter CHAPTER=$$c;   \
+	        make install CHAPTER=$$c;   \
+	    done;                           \
+	fi
 
 bochs:
 	bash scripts/run_bochs.sh
@@ -31,7 +45,7 @@ update:
 
 clean:
 	@echo Removing object files
-	@-rm $(COBJECTS) $(SOBJECTS) kernel 2>/dev/null
+	@-rm -f $(COBJECTS) $(SOBJECTS) kernel 2>/dev/null
 
 link:
 	@echo Linking
@@ -40,17 +54,16 @@ link:
 docs:
 	cd doc; make html
 
-full:
-	for c in 2 3 4 5 6 7; do echo "*** Chapter: $$c"; make clean; make CHAPTER=$$c; make install CHAPTER=$$c; done
+chapter: $(COBJECTS) $(SOBJECTS) link update
 
 install:
 	@echo Installing chapter $(CHAPTER)
-	@-rm -r $(INSTALL_DIR)
+	@-rm -rf $(INSTALL_DIR)
 	@mkdir -p $(INSTALL_DIR)/src
 	@python scripts/install.py $(CHAPTER) src $(INSTALL_DIR)/src
 	@cp floppy.img kernel link.ld Makefile $(INSTALL_DIR)
 	@mkdir $(INSTALL_DIR)/scripts
-	@cp scripts/update_image.sh scripts/run_bochs.sh $(INSTALL_DIR)/scripts
+	@cp scripts/bochsrc.txt scripts/update_image.sh scripts/run_bochs.sh $(INSTALL_DIR)/scripts
 
 check-install:
 	@echo Building in $(INSTALL_DIR)
@@ -63,3 +76,4 @@ check-install:
 .c.o:
 	@echo Compiling $<
 	@$(CC) $(CFLAGS) -DCHAPTER=$(CHAPTER) -o $@ -c $<
+

@@ -43,7 +43,7 @@ int fn(void *arg)
 {
   for(;;) {
     printk("a");
-	}
+  }
   return 6;
 }
 #endif
@@ -54,24 +54,24 @@ spinlock_t lock = SPINLOCK_UNLOCKED;
 int fn(void *arg)
 {
   for(;;) {
-		int i;
-		spinlock_lock(&lock);
-		for(i = 0; i < 80; i++)
+    int i;
+    spinlock_lock(&lock);
+    for(i = 0; i < 80; i++)
       printk("a");
-		spinlock_unlock(&lock);
+    spinlock_unlock(&lock);
   }
   return 6;
 }
 #endif
 
-int main(multiboot_t *mboot_ptr)
+int kernel_main(multiboot_t *mboot_ptr)
 {
 #if CHAPTER >= 3
   monitor_clear();
 #endif
 
-#if CHAPTER == 3
-  monitor_write("Hello, world!");
+#if CHAPTER == 3 || CHAPTER == 4
+  monitor_write("Hello, world!\n");
 #endif
 
 #if CHAPTER >= 4
@@ -128,8 +128,8 @@ int main(multiboot_t *mboot_ptr)
 
   thread_t *t = create_thread(&fn, (void*)0x567, stack);
   for(;;) {
-		printk("b");
-	}
+    printk("b");
+  }
 
 #endif
 
@@ -138,11 +138,11 @@ int main(multiboot_t *mboot_ptr)
 
   thread_t *t = create_thread(&fn, (void*)0x567, stack);
   for(;;) {
-		int i;
-		spinlock_lock(&lock);
-		for(i = 0; i < 80; i++)
-			printk("b");
-		spinlock_unlock(&lock);
+    int i;
+    spinlock_lock(&lock);
+    for(i = 0; i < 80; i++)
+      printk("b");
+    spinlock_unlock(&lock);
   }
 
 #endif
